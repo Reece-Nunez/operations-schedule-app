@@ -1,8 +1,8 @@
 {
   "development": {
     "username": "nunez",
-    "password": "password",
-    "database": "operations-schedule",
+    "password": "Nov042011!",
+    "database": "operations_schedule",
     "host": "127.0.0.1",
     "dialect": "postgres"
   },

@@ -14,7 +14,7 @@ const Login = () => {
     e.preventDefault();
     const success = await login(email, password);
     if (success) {
-      navigate('/schedule');
+      navigate('/home');
     } else {
       alert('Login failed. Please check your credentials and try again.');
     }
