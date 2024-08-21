@@ -107,7 +107,7 @@ router.post('/register', async (req, res) => {
     if (role === 'Operator') {
       const existingOperator = await Operator.findOne({ where: { id } });
       if (!existingOperator) {
-        await Operator.create({ name, id, phone, letter });
+        await Operator.create({ name, id, phone, letter, email, role, status });
       }
     }
 
@@ -151,6 +151,19 @@ router.get('/operators', authenticate, authorize(['Clerk', 'OLMC', 'APS']), asyn
     res.send(operators);
   } catch (error) {
     res.status(500).send({ error: 'Error fetching operators' });
+  }
+});
+
+// Route to get operator by ID
+router.get('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
+  try {
+    const operator = await Operator.findByPk(req.params.id);
+    if (!operator) {
+      return res.status(404).send({ error: 'Operator Not Found!' });
+    }
+    res.send(operator);
+  } catch (error) {
+    res.status(500).send({ error: 'Error fetching operator details' });
   }
 });
 
