@@ -1,7 +1,8 @@
-// src/components/Logout.js
 import React from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
+import { ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 
 const Logout = () => {
     const { logout } = useUser();
@@ -10,9 +11,16 @@ const Logout = () => {
     const handleLogout = () => {
         logout();
         navigate('/login');
-};
+    };
 
-    return <button onClick={handleLogout}>Logout</button>;
+    return (
+        <ListItem button onClick={handleLogout}>
+            <ListItemIcon>
+                <ExitToAppIcon />
+            </ListItemIcon>
+            <ListItemText primary="Logout" />
+        </ListItem>
+    );
 };
 
 export default Logout;

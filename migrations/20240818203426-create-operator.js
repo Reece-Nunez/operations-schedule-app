@@ -15,9 +15,6 @@ module.exports = {
       letter: {
         type: Sequelize.STRING
       },
-      employeeId: {
-        type: Sequelize.STRING
-      },
       phone: {
         type: Sequelize.STRING
       },

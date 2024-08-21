@@ -1,19 +1,32 @@
-// src/components/Login.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { TextField, Button, Container, Typography } from '@mui/material';
+import { TextField, Button, Container, Typography, Box } from '@mui/material';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useUser();
+  const { setUser, login } = useUser(); // Destructure setUser here
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = await login(email, password);
-    if (success) {
+    const response = await login(email, password);
+
+    console.log('Login Response:', response);
+
+    if (response) {
+      const { token, user } = response;
+
+      console.log('User:', user);
+      console.log('Token:', token);
+
+      setUser(user); // Correctly set the user state
+
+      if (user.status === 'pending') {
+        alert('Your account is pending approval by an Admin');
+      }
+
       navigate('/home');
     } else {
       alert('Login failed. Please check your credentials and try again.');
@@ -44,10 +57,22 @@ const Login = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <Button type="submit" variant="contained" color="primary" fullWidth>
-          Login
-        </Button>
+        <Box mt={2}>
+          <Button type="submit" variant="contained" color="primary" fullWidth>
+            Login
+          </Button>
+        </Box>
       </form>
+      <Box mt={2}>
+        <Button
+          variant="outlined"
+          color="secondary"
+          fullWidth
+          onClick={() => navigate('/register')}
+        >
+          Register
+        </Button>
+      </Box>
     </Container>
   );
 };
