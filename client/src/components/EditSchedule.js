@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Typography, Button, MenuItem, Select, FormControl, InputLabel, TextField } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import axios from 'axios';
@@ -125,65 +127,66 @@ const eventPropGetter = (event) => {
 };
 
 return (
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
     <Container maxWidth="lg" style={{ marginTop: '2rem' }}>
-    <Typography variant="h4" component="h2" gutterBottom>
+        <Typography variant="h4" component="h2" gutterBottom>
         Edit Schedule
-    </Typography>
+        </Typography>
 
-    <FormControl fullWidth margin="normal">
+        <FormControl fullWidth margin="normal">
         <InputLabel>Operator</InputLabel>
         <Select
-        name="operatorId"
-        value={newEvent.operatorId}
-        onChange={handleInputChange}
+            name="operatorId"
+            value={newEvent.operatorId}
+            onChange={handleInputChange}
         >
-        {operators.map((operator) => (
+            {operators.map((operator) => (
             <MenuItem key={operator.id} value={operator.id}>
-            {operator.name}
+                {operator.name}
             </MenuItem>
-        ))}
+            ))}
         </Select>
-    </FormControl>
+        </FormControl>
 
-    <FormControl fullWidth margin="normal">
+        <FormControl fullWidth margin="normal">
         <InputLabel>Shift</InputLabel>
         <Select
-        name="shift"
-        value={newEvent.shift}
-        onChange={handleInputChange}
+            name="shift"
+            value={newEvent.shift}
+            onChange={handleInputChange}
         >
-        <MenuItem value="Day">Day</MenuItem>
-        <MenuItem value="Night">Night</MenuItem>
+            <MenuItem value="Day">Day</MenuItem>
+            <MenuItem value="Night">Night</MenuItem>
         </Select>
-    </FormControl>
+        </FormControl>
 
-    <FormControl fullWidth margin="normal">
+        <FormControl fullWidth margin="normal">
         <InputLabel>Job</InputLabel>
         <Select
-        name="job"
-        value={newEvent.job}
-        onChange={handleInputChange}
+            name="job"
+            value={newEvent.job}
+            onChange={handleInputChange}
         >
-        {Object.keys(jobColors).map((job) => (
+            {Object.keys(jobColors).map((job) => (
             <MenuItem key={job} value={job}>
-            {job}
+                {job}
             </MenuItem>
-        ))}
+            ))}
         </Select>
-    </FormControl>
+        </FormControl>
 
-    <DatePicker
+        <DatePicker
         label="Select Date"
         value={newEvent.startDate}
         onChange={handleDateChange}
         renderInput={(params) => <TextField {...params} fullWidth margin="normal" />}
-    />
+        />
 
-    <Button variant="contained" color="primary" onClick={handleSubmit}>
+        <Button variant="contained" color="primary" onClick={handleSubmit}>
         Add Event
-    </Button>
+        </Button>
 
-    <Calendar
+        <Calendar
         localizer={localizer}
         events={events}
         startAccessor="start"
@@ -191,8 +194,9 @@ return (
         style={{ height: '80vh', marginTop: '2rem' }}
         defaultView="month"
         eventPropGetter={eventPropGetter}
-    />
+        />
     </Container>
+    </LocalizationProvider>
 );
 };
 
