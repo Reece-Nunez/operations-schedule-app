@@ -1,66 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Button, List, ListItem, Link as MuiLink, TextField, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, InputLabel, FormControl, Paper, Typography, Box } from '@mui/material';
 import { useUser } from '../contexts/UserContext';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { styled } from '@mui/material/styles';
-
-const Container = styled(Box)({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  height: '100vh',
-  backgroundColor: '#f5f5f5',
-});
-
-const StyledPaper = styled(Paper)({
-  padding: '20px',
-  maxWidth: '500px',
-  width: '100%',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-  borderRadius: '10px',
-  backgroundColor: '#fff',
-});
-
-const Title = styled(Typography)({
-  textAlign: 'center',
-  marginBottom: '20px',
-});
-
-const ButtonGroup = styled(Box)({
-  display: 'flex',
-  justifyContent: 'center',
-  marginBottom: '20px',
-});
-
-const StyledList = styled(List)({
-  marginBottom: '20px',
-});
-
-const StyledListItem = styled(ListItem)({
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '10px',
-  borderBottom: '1px solid #ddd',
-});
-
-const DialogActionButtons = styled(DialogActions)({
-  justifyContent: 'space-between',
-});
+import {
+  Button, List, ListItem, Link as MuiLink,
+  Dialog, DialogActions, DialogContent, DialogTitle,
+  TextField, Select, MenuItem, FormControl, InputLabel, Checkbox, ListItemText, Box, IconButton
+} from '@mui/material';
+import { Link } from 'react-router-dom';
+import DeleteIcon from '@mui/icons-material/Delete'; // Import the delete icon
 
 const ManageOperators = () => {
   const { user } = useUser();
   const [operators, setOperators] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    id: '',
+  const [selectedOperator, setSelectedOperator] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [formData, setFormData] = useState({
     name: '',
     letter: '',
     employeeId: '',
     phone: '',
     jobs: [],
   });
-  const navigate = useNavigate();
+
+  const availableJobs = ['FCC Console', 'VRU Console', '#1 Out', '#2 Out', '#3 Out', 'Tank Farm'];
 
   useEffect(() => {
     if (['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role)) {
@@ -72,88 +34,77 @@ const ManageOperators = () => {
           },
         })
         .then(response => setOperators(response.data))
-        .catch(error => {
-          console.error('Error fetching operators:', error);
-        });
-      } else {
-        console.error('No token found');
+        .catch(error => console.error('Error fetching operators:', error));
       }
     }
   }, [user]);
 
-  const openEditForm = (operator) => {
-    setEditForm({
-      ...operator,
-      jobs: operator.jobs || [],
-    });
-    setIsEditing(true);
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm({ ...editForm, [name]: value });
-  };
-
-  const handleJobChange = (event) => {
-    const { value } = event.target;
-    setEditForm({
-      ...editForm,
-      jobs: typeof value === 'string' ? value.split(',') : value,
-    });
-  };
-
-  const handleClearJobs = () => {
-    setEditForm({
-      ...editForm,
-      jobs: []
-    });
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-
-    const token = localStorage.getItem('token');
-    try {
-      await axios.put(`/api/operators/${editForm.id}`, editForm, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  const handleOpen = (operator = null) => {
+    if (operator) {
+      // Editing existing operator
+      setSelectedOperator(operator);
+      setFormData({
+        name: operator.name,
+        letter: operator.letter,
+        employeeId: operator.employeeId,
+        phone: operator.phone,
+        jobs: operator.jobs || [],
       });
-      setOperators(operators.map(op => (op.id === editForm.id ? editForm : op)));
-      setIsEditing(false);
+    } else {
+      // Adding a new operator
+      setSelectedOperator(null);
+      setFormData({
+        name: '',
+        letter: '',
+        employeeId: '',
+        phone: '',
+        jobs: [],
+      });
+    }
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setSelectedOperator(null);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.letter || !formData.phone) {
+      console.error('All required fields must be filled.');
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem('token');
+      if (selectedOperator) {
+        const response = await axios.put(`/api/operators/${selectedOperator.id}`, formData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        setOperators(operators.map(op => (op.id === selectedOperator.id ? response.data : op)));
+      } else {
+        const response = await axios.post('/api/operators', formData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        setOperators([...operators, response.data]);
+      }
+      handleClose();
     } catch (error) {
-      console.error('Error editing operator:', error);
+      console.error('Error saving operator:', error.response?.data?.error || error.message);
     }
   };
+  
 
-  const handleAddOperator = async () => {
-    const newOperator = {
-      name: prompt('Enter operator name:'),
-      letter: prompt('Enter operator letter:'),
-      employeeId: prompt('Enter operator employee ID:'),
-      phone: prompt('Enter operator phone number:'),
-      jobs: prompt('Enter operator jobs (comma-separated):').split(',')
-    };
-
-    const token = localStorage.getItem('token');
+  const handleDelete = async (operatorId) => {
     try {
-      const response = await axios.post('/api/operators', newOperator, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setOperators([...operators, response.data]);
-    } catch (error) {
-      console.error('Error adding operator:', error);
-    }
-  };
-
-  const handleDeleteOperator = async (operatorId) => {
-    const token = localStorage.getItem('token');
-    try {
+      const token = localStorage.getItem('token');
       await axios.delete(`/api/operators/${operatorId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       setOperators(operators.filter(op => op.id !== operatorId));
@@ -162,133 +113,135 @@ const ManageOperators = () => {
     }
   };
 
-  const handleBack = () => {
-    navigate('/home');
-}
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const handleJobChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    setFormData(prevState => ({
+      ...prevState,
+      jobs: typeof value === 'string' ? value.split(',') : value,
+    }));
+  };
 
   return (
-    <Container>
-      <StyledPaper>
-        <Title variant="h4">
-          Manage Operators
-        </Title>
+    <Box 
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      height="100vh" // Full viewport height to ensure centering in the middle
+    >
+      <Box width="100%" maxWidth="600px"> {/* Adjust the width as needed */}
+        <h2 style={{ textAlign: 'center' }}>Manage Operators</h2>
         {['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role) ? (
-          <>
-            <ButtonGroup>
-              <Button variant="contained" color="primary" onClick={handleAddOperator}>
-                Add Operator
-              </Button>
-            </ButtonGroup>
-            <StyledList>
+          <div>
+            <List>
               {operators.map((operator) => (
-                <StyledListItem key={operator.id}>
-                  <MuiLink component={Link} to={`/operator/${operator.id}`}>
+                <ListItem key={operator.id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <MuiLink component={Link} to={`/operator/${operator.id}`} style={{ marginRight: '10px' }}>
                     {operator.name} - {operator.letter}
                   </MuiLink>
-                  <div>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      onClick={() => openEditForm(operator)}
-                      style={{ marginLeft: '10px' }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      onClick={() => handleDeleteOperator(operator.id)}
-                      style={{ marginLeft: '10px' }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </StyledListItem>
-              ))}
-            </StyledList>
-
-            <Dialog open={isEditing} onClose={() => setIsEditing(false)}>
-              <DialogTitle>Edit Operator</DialogTitle>
-              <DialogContent>
-                <TextField
-                  label="Name"
-                  name="name"
-                  value={editForm.name}
-                  onChange={handleEditChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <TextField
-                  label="Letter"
-                  name="letter"
-                  value={editForm.letter}
-                  onChange={handleEditChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <TextField
-                  label="Employee ID"
-                  name="employeeId"
-                  value={editForm.employeeId}
-                  onChange={handleEditChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <TextField
-                  label="Phone"
-                  name="phone"
-                  value={editForm.phone}
-                  onChange={handleEditChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Jobs</InputLabel>
-                  <Select
-                    name="jobs"
-                    multiple
-                    value={editForm.jobs}
-                    onChange={handleJobChange}
-                    renderValue={(selected) => selected.join(', ')}
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => handleOpen(operator)}
+                    style={{ marginLeft: '10px' }}
                   >
-                    <MenuItem value="FCC CONSOLE">FCC CONSOLE</MenuItem>
-                    <MenuItem value="VRU CONSOLE">VRU CONSOLE</MenuItem>
-                    <MenuItem value="FCC OUT">FCC OUT</MenuItem>
-                    <MenuItem value="VRU OUT">VRU OUT</MenuItem>
-                    <MenuItem value="BUTAMER">BUTAMER</MenuItem>
-                    <MenuItem value="TANK FARM">TANK FARM</MenuItem>
-                  </Select>
-                </FormControl>
-              </DialogContent>
-              <DialogActionButtons>
-                <Button onClick={handleClearJobs} color='secondary'>
-                  Clear Jobs
-                </Button>
-                <Button onClick={() => setIsEditing(false)} color="secondary">
-                  Cancel
-                </Button>
-                <Button onClick={handleEditSubmit} color="primary">
-                  Save
-                </Button>
-              </DialogActionButtons>
-            </Dialog>
-          </>
+                    Edit
+                  </Button>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => handleDelete(operator.id)}
+                    style={{ marginLeft: '10px' }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ListItem>
+              ))}
+            </List>
+            <Box display="flex" justifyContent="center" mt={2}>
+              <Button variant="contained" color="primary" onClick={() => handleOpen()}>
+                Add Operator
+              </Button>
+            </Box>
+          </div>
         ) : (
-          <Typography color="error" align="center">
-            You do not have permission to manage operators.
-          </Typography>
+          <p style={{ textAlign: 'center' }}>You do not have permission to manage operators.</p>
         )}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <Button
-          onClick={handleBack}
-          color='primary'
-          variant='contained'
-          >
-            Back
-          </Button>
-        </div>
-      </StyledPaper>
-    </Container>
+      </Box>
+
+      <Dialog open={open} onClose={handleClose}>
+        <DialogTitle>{selectedOperator ? 'Edit Operator' : 'Add Operator'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            name="name"
+            label="Name"
+            type="text"
+            fullWidth
+            value={formData.name}
+            onChange={handleChange}
+          />
+          <TextField
+            margin="dense"
+            name="letter"
+            label="Letter"
+            type="text"
+            fullWidth
+            value={formData.letter}
+            onChange={handleChange}
+          />
+          <TextField
+            margin="dense"
+            name="employeeId"
+            label="Employee ID"
+            type="text"
+            fullWidth
+            value={formData.employeeId}
+            onChange={handleChange}
+          />
+          <TextField
+            margin="dense"
+            name="phone"
+            label="Phone"
+            type="text"
+            fullWidth
+            value={formData.phone}
+            onChange={handleChange}
+          />
+          <FormControl fullWidth margin="dense">
+            <InputLabel id="jobs-label">Jobs</InputLabel>
+            <Select
+              labelId="jobs-label"
+              multiple
+              value={formData.jobs}
+              onChange={handleJobChange}
+              renderValue={(selected) => selected.join(', ')}
+            >
+              {availableJobs.map((job) => (
+                <MenuItem key={job} value={job}>
+                  <Checkbox checked={formData.jobs.indexOf(job) > -1} />
+                  <ListItemText primary={job} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="secondary">Cancel</Button>
+          <Button onClick={handleSave} color="primary">{selectedOperator ? 'Save' : 'Add'}</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
