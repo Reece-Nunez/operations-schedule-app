@@ -17,7 +17,7 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={isAuthenticated() ? <Navigate to="/schedule" /> : <Login />} />
+        <Route path="/" element={isAuthenticated() ? <Navigate to="/home" /> : <Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route element={<ProtectedRoute roles={['Clerk', 'OLMC', 'APS', 'Admin']} />}>

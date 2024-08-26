@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, Box } from '@mui/material';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
@@ -13,6 +13,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useNavigate } from 'react-router-dom';
 import Logout from './Logout';
 import { useUser } from '../contexts/UserContext';
+import axios from 'axios';
 
 const localizer = momentLocalizer(moment);
 
@@ -45,8 +46,33 @@ const Legend = () => (
 
 const Home = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [events, setEvents] = useState([]);
   const navigate = useNavigate();
   const { user } = useUser();
+
+  useEffect(() => {
+    const fetchPublishedEvents = async () => {
+      try {
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+          throw new Error('No token found');
+        }
+
+        const response = await axios.get('/api/events', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setEvents(response.data.filter(event => event.published));  // Only show published events
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      }
+    };
+
+    fetchPublishedEvents();
+  }, []);
 
   const toggleDrawer = (open) => () => {
     setDrawerOpen(open);
@@ -145,13 +171,12 @@ const Home = () => {
 
         <Calendar
           localizer={localizer}
+          events={events}  // Show only published events
           startAccessor="start"
           endAccessor="end"
           style={{ height: '80vh' }}
           defaultView="month"
           eventPropGetter={eventPropGetter}
-          // You would also need to apply these colors to the events on the calendar,
-          // which typically involves setting a `style` or `className` on the event components.
         />
         <Legend />
       </Container>

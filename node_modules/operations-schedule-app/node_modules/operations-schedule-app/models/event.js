@@ -32,6 +32,10 @@ Event.init({
     type: DataTypes.STRING,
     allowNull: false
     },
+    published: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
     job: {
     type: DataTypes.STRING,
     allowNull: false
