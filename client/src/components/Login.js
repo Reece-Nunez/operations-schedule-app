@@ -34,11 +34,28 @@ const Login = () => {
   };
 
   return (
-    <Container maxWidth="sm">
+    <Container
+      maxWidth="sm"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh', // Takes the full viewport height
+      }}
+    >
       <Typography variant="h4" component="h1" gutterBottom>
         Login
       </Typography>
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          width: '100%', // Ensures the form takes full container width
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
         <TextField
           label="Email"
           type="email"
@@ -57,13 +74,13 @@ const Login = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <Box mt={2}>
+        <Box mt={2} width="100%">
           <Button type="submit" variant="contained" color="primary" fullWidth>
             Login
           </Button>
         </Box>
       </form>
-      <Box mt={2}>
+      <Box mt={2} width="100%">
         <Button
           variant="outlined"
           color="secondary"
