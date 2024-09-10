@@ -11,6 +11,7 @@ const authenticate = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Decoded token:', decoded);
+    console.log('Authentication successful:', decoded); // Add this log
 
     const user = await User.findOne({ where: { id: decoded.id } });
 
@@ -18,7 +19,7 @@ const authenticate = async (req, res, next) => {
       console.log('Received Token:', token);
       console.log('Decoded Token:', decoded);
       console.log('Found User:', user);
-    }    
+    }
 
     if (!user) {
       throw new Error('User not found');

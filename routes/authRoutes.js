@@ -7,15 +7,6 @@ const router = express.Router();
 
 console.log("authRoutes.js is being imported correctly");
 
-router.get('/test', (req, res) => {
-  res.send('Test route is working!');
-});
-
-router.post('/simple', (req, res) => {
-  res.send('Simple POST route works!');
-});
-
-
 // Route to login a user (public)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -61,15 +52,14 @@ router.post('/login', async (req, res) => {
   console.log('JWT_SECRET:', process.env.JWT_SECRET);
 });
 
-
-//Route to register new users
+// Route to register new users
 router.post('/register', async (req, res) => {
-  console.log('Regsiter route accessed with data:', req.body);
-  const { id, name, email, password, phone, role, letter } = req.body;
+  console.log('Register route accessed with data:', req.body);
+  const { id, name, email, password, phone, role, letter, team } = req.body;
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-  // If role is 'Operator', check if 'letter is provided
+  // If role is 'Operator', check if 'letter' is provided
   if (role === 'Operator' && !letter) {
     return res.status(400).send({ error: 'Letter is required for Operators.' });
   }
@@ -105,9 +95,9 @@ router.post('/register', async (req, res) => {
 
     // If the user is an Operator, create an Operator record
     if (role === 'Operator') {
-      const existingOperator = await Operator.findOne({ where: { id } });
+      const existingOperator = await Operator.findOne({ where: { employeeId } });
       if (!existingOperator) {
-        await Operator.create({ name, id, phone, letter, email, role, status });
+        await Operator.create({ name, phone, letter, email, employeeId, role, status, team });  // Include `team` here
       }
     }
 
@@ -115,73 +105,14 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
     res.status(201).send({ user, token });
   } catch (error) {
-    console.error('Error during registration:', error);  // Log detailed error
+    console.error('Error during registration:', error);
     res.status(400).send({ error: error.message || 'Registration failed. Please try again.' });
-  }
-});
-
-
-router.put('/profile', authenticate, async (req, res) => {
-  const { name, email, phone, password, avatar } = req.body;
-
-  try {
-    const user = req.user;
-
-    if (id) user.id = id;
-    if (name) user.name = name;
-    if (email) user.email = email;
-    if (phone) user.phone = phone;
-    if (avatar) user.avatar = avatar; // Update avatar with the selected default avatar or uploaded one
-    if (password) {
-      user.password = await bcrypt.hash(password, 8);
-    }
-
-    await user.save();
-    res.send(user);
-  } catch (error) {
-    res.status(400).send(error);
-  }
-});
-
-
-// Route to get operators (protected, only accessible by Clerk, OLMC, and APS)
-router.get('/operators', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
-  try {
-    const operators = await Operator.findAll();
-    res.send(operators);
-  } catch (error) {
-    res.status(500).send({ error: 'Error fetching operators' });
-  }
-});
-
-// Route to get operator by ID
-router.get('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
-  try {
-    const operator = await Operator.findByPk(req.params.id);
-    if (!operator) {
-      return res.status(404).send({ error: 'Operator Not Found!' });
-    }
-    res.send(operator);
-  } catch (error) {
-    res.status(500).send({ error: 'Error fetching operator details' });
-  }
-});
-
-// Route to add an operator (protected, only accessible by Clerk, OLMC, and APS)
-router.post('/operators', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
-  const { name, letter, employeeId, phone, jobs } = req.body;
-
-  try {
-    const operator = await Operator.create({ name, letter, employeeId, phone, jobs });
-    res.status(201).send(operator);
-  } catch (error) {
-    res.status(400).send(error);
   }
 });
 
 // Route to update an operator (protected, only accessible by Clerk, OLMC, and APS)
 router.put('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
-  const { name, letter, employeeId, phone, jobs } = req.body;
+  const { name, letter, employeeId, phone, jobs, email, team } = req.body;
 
   try {
     const operator = await Operator.findByPk(req.params.id);
@@ -194,6 +125,8 @@ router.put('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), 
     operator.employeeId = employeeId || operator.employeeId;
     operator.phone = phone || operator.phone;
     operator.jobs = jobs || operator.jobs;
+    if (email !== undefined) operator.email = email;
+    if (team !== undefined) operator.team = team; // Update the team field
 
     await operator.save();
     res.send(operator);
@@ -213,30 +146,106 @@ router.delete('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']
     await operator.destroy();
     res.send({ message: 'Operator deleted' });
   } catch (error) {
-    console.error('Login error', error);
+    console.error('Error deleting operator:', error);
     res.status(500).send({ error: 'Error deleting operator' });
   }
 });
 
-// Route to approve a user (only accessible by Admin)
-router.put('/approve/:id', authenticate, authorize(['Admin']), async (req, res) => {
-  const { id } = req.params;
-
+// Route to get all operators
+router.get('/operators', authenticate, async (req, res) => {
   try {
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).send({ error: 'User not found' });
-    }
-
-    user.status = 'active';
-    await user.save();
-
-    res.send({ message: 'User approved successfully' });
+    const operators = await Operator.findAll(); // Fetch all operators
+    res.status(200).json(operators); // Respond with all operators
   } catch (error) {
-    console.error('Error approving user:', error);
-    res.status(500).send({ error: 'An error occurred while trying to approve the user' });
+    console.error('Error fetching operators:', error);
+    res.status(500).send('Server error');
   }
 });
 
+// Route to get a specific operator by ID
+router.get('/operators/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const operator = await Operator.findByPk(id); // Find operator by ID
+    if (!operator) {
+      return res.status(404).json({ message: 'Operator not found' });
+    }
+    res.json(operator);
+  } catch (error) {
+    console.error('Error fetching operator:', error);
+    res.status(500).send('Server error');
+  }
+});
+
+
+// Route to add an operator (protected, only accessible by Clerk, OLMC, and APS)
+router.post('/operators', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
+  const { name, letter, employeeId, phone, jobs, email, team } = req.body;
+
+  try {
+    // Check if employeeId already exists
+    const existingOperator = await Operator.findOne({ where: { employeeId } });
+    if (existingOperator) {
+      return res.status(400).send({ error: 'Employee ID must be unique. An operator with this Employee ID already exists.' });
+    }
+
+    const operator = await Operator.create({ name, letter, employeeId, phone, jobs, email, team });
+    res.status(201).send(operator);
+  } catch (error) {
+    console.error('Error creating operator: ', error);
+    res.status(500).send({ error: 'Server error occured while creating operator.'});
+  }
+});
+
+// Route to update an operator
+router.put('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
+  console.log('Request body:', req.body); // Add this line to log the incoming data
+  const { name, letter, employeeId, phone, jobs, email, team } = req.body;
+
+  try {
+    // Find operator by id (the new primary key)
+    const operator = await Operator.findByPk(req.params.id);
+    if (!operator) {
+      return res.status(404).send({ error: 'Operator not found' });
+    }
+
+    // Only update fields if they are provided
+    if (employeeId && employeeId !== operator.employeeId) {
+      const existingOperator = await Operator.findOne({ where: { employeeId } });
+      if (existingOperator) {
+        return res.status(400).send({ error: 'Employee ID must be unique. An operator with this Employee ID already exists.' });
+      }
+      operator.employeeId = employeeId;
+    }
+
+    operator.name = name || operator.name;
+    operator.letter = letter || operator.letter;
+    operator.phone = phone || operator.phone;
+    operator.jobs = jobs || operator.jobs;
+    if (email !== undefined) operator.email = email;
+    if (team !== undefined) operator.team = team; // Update the team field
+
+    await operator.save();
+    res.send(operator);
+  } catch (error) {
+    res.status(400).send({ error: 'Failed to update operator. Please try again.' });
+  }
+});
+
+// Route to delete an operator (use `id` as primary key)
+router.delete('/operators/:id', authenticate, authorize(['Clerk', 'OLMC', 'APS']), async (req, res) => {
+  try {
+    const operator = await Operator.findByPk(req.params.id);
+    if (!operator) {
+      return res.status(404).send({ error: 'Operator not found' });
+    }
+
+    await operator.destroy();
+    res.send({ message: 'Operator deleted' });
+  } catch (error) {
+    res.status(500).send({ error: 'Error deleting operator' });
+  }
+});
 
 module.exports = router;

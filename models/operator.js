@@ -11,15 +11,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    employeeId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true, // Still enforces uniqueness
+    },
     letter: {
       type: DataTypes.STRING,
       allowNull: false
-    },
-    id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      unique: true,
-      primaryKey: true,
     },
     phone: {
       type: DataTypes.STRING,
@@ -27,21 +31,27 @@ module.exports = (sequelize, DataTypes) => {
     },
     email: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
       unique: true
     },
     role: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      defaultValue: 'Operator',
     },
     status: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      defaultValue: 'active',
     },
     jobs: {
       type: DataTypes.JSON,
       allowNull: true
-    }
+    },
+    team: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   }, {
     sequelize,
     modelName: 'Operator',
