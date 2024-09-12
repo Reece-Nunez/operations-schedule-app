@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, Box } from '@mui/material';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Container, Typography, Drawer, List, ListItem, ListItemIcon,
+  ListItemText, IconButton, Box } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import PersonIcon from '@mui/icons-material/Person';
 import EventIcon from '@mui/icons-material/Event';
-import BuildIcon from '@mui/icons-material/Build';
+import HomeIcon from '@mui/icons-material/Home';
 import EditIcon from '@mui/icons-material/Edit';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { useNavigate } from 'react-router-dom';
 import Logout from './Logout';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import axios from 'axios';
-
-const localizer = momentLocalizer(moment);
+import { DataSet, Timeline } from "vis-timeline/standalone";
+import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 
 const jobColors = {
   'FCC Console': 'blue',
@@ -47,10 +45,29 @@ const Legend = () => (
 const Home = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [events, setEvents] = useState([]);
+  const timelineRef = useRef(null);
+  const timelineInstance = useRef(null);
   const navigate = useNavigate();
   const { user } = useUser();
+  const [operators, setOperators] = useState([]);
+
 
   useEffect(() => {
+
+    const fetchOperators = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found");
+
+        const response = await axios.get("/api/operators", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setOperators(response.data);
+      } catch (error) {
+        console.error("Error fetching operators", error);
+      }
+    };
+
     const fetchPublishedEvents = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -71,25 +88,83 @@ const Home = () => {
       }
     };
 
+    fetchOperators();
     fetchPublishedEvents();
   }, []);
 
+  // Initialize the timeline
+  useEffect(() => {
+    const container = timelineRef.current;
+  
+    // If timelineInstance already exists, clear the DataSet before creating new items.
+    if (timelineInstance.current) {
+      // Clear the timeline items and groups
+      timelineInstance.current.setItems([]);
+      timelineInstance.current.setGroups([]);
+    }
+
+    const operatorMap = operators.reduce((map, operator) => {
+      map[operator.id] = operator.name;
+      return map;
+    }, {});
+  
+    // Create items for each event, assigning them to specific groups (operators)
+    const items = new DataSet(
+      events.map((event) => ({
+        id: event.id,
+        group: event.operatorId,
+        content: `${event.title}`,
+        start: event.start,
+        end: event.end,
+        style: `background-color: ${jobColors[event.job] || "gray"};`,
+      }))
+    );
+  
+    // Create groups for operators
+    const groups = new DataSet(
+      [...new Set(events.map(event => event.operatorId))].map(operatorId => ({
+        id: operatorId,
+        content: operatorMap[operatorId] || `Operator ${operatorId}`,
+      }))
+    );
+  
+    const options = {
+      orientation: {
+        axis: "top",
+        item: "bottom",
+      },
+      stack: true,
+      showCurrentTime: true,
+      zoomMin: 1000 * 60 * 60 * 24,
+      zoomMax: 1000 * 60 * 60 * 24 * 31,
+      groupOrder: (a, b) => a.content.localeCompare(b.content),
+      width: "100%",
+      zoomable: false,
+      horizontalScroll: false,
+      multiselect: true,
+    };
+  
+    // If timelineInstance doesn't exist yet, create a new one
+    if (!timelineInstance.current) {
+      timelineInstance.current = new Timeline(container, items, groups, options);
+    } else {
+      // Update existing timeline with new items and groups
+      timelineInstance.current.setItems(items);
+      timelineInstance.current.setGroups(groups);
+    }
+  
+    return () => {
+      if (timelineInstance.current) {
+        timelineInstance.current.destroy(); // Clean up timeline instance on unmount
+        timelineInstance.current = null;
+      }
+    };
+  }, [events, operators]);
+  
+  
+
   const toggleDrawer = (open) => () => {
     setDrawerOpen(open);
-  };
-
-  const handleMenuItemClick = (path, isExternal = false) => {
-    if (isExternal) {
-      window.location.href = path;
-    } else {
-      navigate(path);
-    }
-    setDrawerOpen(false);
-  };
-
-  const eventPropGetter = (event) => {
-    const backgroundColor = jobColors[event.job] || 'gray'; // Fallback color if job is not found
-    return { style: { backgroundColor } };
   };
 
   return (
@@ -112,36 +187,29 @@ const Home = () => {
           onKeyDown={toggleDrawer(false)}
         >
           <List>
-            <ListItem button onClick={() => handleMenuItemClick('/profile')}>
+            <ListItem button onClick={() => navigate('/profile')}>
               <ListItemIcon>
                 <PersonIcon />
               </ListItemIcon>
               <ListItemText primary="Profile" />
             </ListItem>
 
-            <ListItem button onClick={() => handleMenuItemClick('/schedule')}>
+            <ListItem button onClick={() => navigate('/schedule')}>
               <ListItemIcon>
                 <EventIcon />
               </ListItemIcon>
               <ListItemText primary="Schedule" />
             </ListItem>
 
-            <ListItem button onClick={() => handleMenuItemClick('https://mytools.ephillips66.com/', true)}>
-              <ListItemIcon>
-                <BuildIcon />
-              </ListItemIcon>
-              <ListItemText primary="My Tools" />
-            </ListItem>
-
             {['OLMC', 'Clerk', 'APS', 'Admin'].includes(user.role) && (
               <>
-                <ListItem button onClick={() => handleMenuItemClick('/edit-schedule')}>
+                <ListItem button onClick={() => navigate('/edit-schedule')}>
                   <ListItemIcon>
                     <EditIcon />
                   </ListItemIcon>
                   <ListItemText primary="Edit Schedule" />
                 </ListItem>
-                <ListItem button onClick={() => handleMenuItemClick('/manage-operators')}>
+                <ListItem button onClick={() => navigate('/manage-operators')}>
                   <ListItemIcon>
                     <SupervisorAccountIcon />
                   </ListItemIcon>
@@ -149,35 +217,19 @@ const Home = () => {
                 </ListItem>
               </>
             )}
-
-            {user.role === 'Admin' && (
-              <ListItem button onClick={() => handleMenuItemClick('/admin-panel')}>
-                <ListItemIcon>
-                  <SupervisorAccountIcon />
-                </ListItemIcon>
-                <ListItemText primary="Admin Panel" />
-              </ListItem>
-            )}
-
             <Logout />
           </List>
         </Box>
       </Drawer>
 
       <Container maxWidth="lg" style={{ marginTop: '4rem' }}>
-        <Typography variant="h3" component="h1" gutterBottom>
+        <Typography variant="h3" component="h1" gutterBottom align='center'>
           Operations Schedule
         </Typography>
 
-        <Calendar
-          localizer={localizer}
-          events={events}  // Show only published events
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: '80vh' }}
-          defaultView="month"
-          eventPropGetter={eventPropGetter}
-        />
+        <Box sx={{ width: "100%", overflowX: "auto" }}>
+          <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px", height: '70vh' }} />
+        </Box>
         <Legend />
       </Container>
     </div>

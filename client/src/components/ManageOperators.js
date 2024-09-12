@@ -4,14 +4,22 @@ import { useUser } from '../contexts/UserContext';
 import {
   Button, List, ListItem, Link as MuiLink, Dialog, DialogActions, DialogContent, 
   DialogTitle, TextField, Select, MenuItem, FormControl, Typography, InputLabel, 
-  Checkbox, ListItemText, Box, IconButton, Grid, Paper
+  Checkbox, ListItemText, Box, IconButton, Grid, Paper, Drawer, ListItemIcon,
 } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import PersonIcon from '@mui/icons-material/Person';
+import EventIcon from '@mui/icons-material/Event';
+import HomeIcon from '@mui/icons-material/Home';
+import EditIcon from '@mui/icons-material/Edit';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import Logout from './Logout';
 import { Link, useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 const ManageOperators = () => {
   const { user } = useUser();
   const navigate = useNavigate();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [operators, setOperators] = useState([]);
   const [selectedOperator, setSelectedOperator] = useState(null);
   const [open, setOpen] = useState(false);
@@ -169,177 +177,233 @@ const ManageOperators = () => {
     return groups;
   }, {});
 
-  return (
-    <Box 
-      display="flex"
-      flexDirection="column"
-      justifyContent="center"
-      alignItems="center"
-      width="100%"
-      padding="1rem"
-    >
-      <Button
-        variant='outlined'
-        color='primary'
-        onClick={() => navigate('/')}
-        style={{ marginBottom: '1rem' }}
-      >
-        Back
-      </Button>
-  
-      <Box width="100%" maxWidth="1200px" textAlign="center">
-        <Typography variant="h4" gutterBottom>Manage Operators</Typography>
-        {['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role) ? (
-          <>
-            <Grid container spacing={3} justifyContent="center">
-              {teams.map((team) => (
-                <Grid item xs={12} sm={6} md={4} key={team}>
-                  <Paper elevation={3} style={{ padding: '1rem', minHeight: '200px' }}>
-                    <Typography variant="h6" gutterBottom>
-                      Team {team}
-                    </Typography>
-                    <List>
-                      {groupedOperators[team] ? groupedOperators[team].map((operator) => (
-                        <ListItem key={operator.id} style={{ display: 'block', marginBottom: '10px' }}>
-                          <Typography variant="body1">
-                            <strong>{operator.name} - {operator.letter}</strong>
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Phone:</strong> {operator.phone}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Jobs:</strong> {operator.jobs.join(' | ')}
-                          </Typography>
-                          <Box display="flex" justifyContent="space-between" marginTop="0.5rem">
-                            <Button
-                              variant="outlined"
-                              color="primary"
-                              onClick={() => handleOpen(operator)}
-                            >
-                              Edit
-                            </Button>
-                            <IconButton
-                              edge="end"
-                              aria-label="delete"
-                              onClick={() => handleDelete(operator.id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-                        </ListItem>
-                      )) : (
-                        <Typography variant="body2">No operators in this team</Typography>
-                      )}
-                    </List>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
+  const toggleDrawer = (open) => () => {
+    setDrawerOpen(open);
+  };
 
-            {/* Add Operator Button */}
-            <Box display="flex" justifyContent="center" mt={3}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => handleOpen()}
-              >
-                Add Operator
-              </Button>
-            </Box>
-          </>
-        ) : (
-          <p>You do not have permission to manage operators.</p>
-        )}
-      </Box>
-  
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{selectedOperator ? 'Edit Operator' : 'Add Operator'}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            name="name"
-            label="Name"
-            type="text"
-            fullWidth
-            value={formData.name}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="email"
-            label="Email"
-            type="email"
-            fullWidth
-            value={formData.email || ''}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="letter"
-            label="Letter"
-            type="text"
-            fullWidth
-            value={formData.letter}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="employeeId"
-            label="Employee ID"
-            type="text"
-            fullWidth
-            value={formData.employeeId}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="phone"
-            label="Phone"
-            type="text"
-            fullWidth
-            value={formData.phone}
-            onChange={handlePhoneChange}
-          />
-          <FormControl fullWidth margin="dense">
-            <InputLabel id="jobs-label">Jobs</InputLabel>
-            <Select
-              labelId="jobs-label"
-              multiple
-              value={formData.jobs}
-              onChange={handleJobChange}
-              renderValue={(selected) => selected.join(', ')}
-            >
-              {availableJobs.map((job) => (
-                <MenuItem key={job} value={job}>
-                  <Checkbox checked={formData.jobs.indexOf(job) > -1} />
-                  <ListItemText primary={job} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="dense">
-            <InputLabel id="team-label">Team</InputLabel>
-            <Select
-              labelId="team-label"
-              name="team"
-              value={formData.team}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <IconButton 
+        onClick={toggleDrawer(true)} 
+        edge="start" 
+        color="inherit" 
+        aria-label="menu"
+        style={{ position: 'absolute', top: 20, left: 20 }}
+      >
+        <MenuIcon />
+      </IconButton>
+
+      <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+        <Box
+          sx={{ width: 250 }}
+          role="presentation"
+          onClick={toggleDrawer(false)}
+          onKeyDown={toggleDrawer(false)}
+        >
+          <List>
+            <ListItem button onClick={() => navigate('/')}>
+              <ListItemIcon>
+                <HomeIcon/>
+              </ListItemIcon>
+              <ListItemText primary="Home" />
+            </ListItem>
+            <ListItem button onClick={() => navigate('/profile')}>
+              <ListItemIcon>
+                <PersonIcon />
+              </ListItemIcon>
+              <ListItemText primary="Profile" />
+            </ListItem>
+
+            <ListItem button onClick={() => navigate('/schedule')}>
+              <ListItemIcon>
+                <EventIcon />
+              </ListItemIcon>
+              <ListItemText primary="Schedule" />
+            </ListItem>
+
+            {['OLMC', 'Clerk', 'APS', 'Admin'].includes(user.role) && (
+              <>
+                <ListItem button onClick={() => navigate('/edit-schedule')}>
+                  <ListItemIcon>
+                    <EditIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Edit Schedule" />
+                </ListItem>
+                <ListItem button onClick={() => navigate('/manage-operators')}>
+                  <ListItemIcon>
+                    <SupervisorAccountIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Manage Operators" />
+                </ListItem>
+              </>
+            )}
+
+            <Logout />
+          </List>
+        </Box>
+      </Drawer>
+      <Box 
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        width="100%"
+        padding="1rem"
+      > 
+        <Box width="100%" maxWidth="1200px" textAlign="center">
+          <Typography variant="h4" gutterBottom>Manage Operators</Typography>
+          {['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role) ? (
+            <>
+              <Grid container spacing={3} justifyContent="center">
+                {teams.map((team) => (
+                  <Grid item xs={12} sm={6} md={4} key={team}>
+                    <Paper elevation={3} style={{ padding: '1rem', minHeight: '200px' }}>
+                      <Typography variant="h6" gutterBottom>
+                        Team {team}
+                      </Typography>
+                      <List>
+                        {groupedOperators[team] ? groupedOperators[team].map((operator) => (
+                          <ListItem key={operator.id} style={{ display: 'block', marginBottom: '10px' }}>
+                            <Typography variant="body1">
+                              <strong>{operator.name} - {operator.letter}</strong>
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Phone:</strong> {operator.phone}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Jobs:</strong> {operator.jobs.join(' | ')}
+                            </Typography>
+                            <Box display="flex" justifyContent="space-between" marginTop="0.5rem">
+                              <Button
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => handleOpen(operator)}
+                              >
+                                Edit
+                              </Button>
+                              <IconButton
+                                edge="end"
+                                aria-label="delete"
+                                onClick={() => handleDelete(operator.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          </ListItem>
+                        )) : (
+                          <Typography variant="body2">No operators in this team</Typography>
+                        )}
+                      </List>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+
+              {/* Add Operator Button */}
+              <Box display="flex" justifyContent="center" mt={3}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleOpen()}
+                >
+                  Add Operator
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <p>You do not have permission to manage operators.</p>
+          )}
+        </Box>
+    
+        <Dialog open={open} onClose={handleClose}>
+          <DialogTitle>{selectedOperator ? 'Edit Operator' : 'Add Operator'}</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              name="name"
+              label="Name"
+              type="text"
+              fullWidth
+              value={formData.name}
               onChange={handleChange}
-            >
-              {teams.map((team) => (
-                <MenuItem key={team} value={team}>
-                  {team}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} color="secondary">Cancel</Button>
-          <Button onClick={handleSave} color="primary">{selectedOperator ? 'Save' : 'Add'}</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            />
+            <TextField
+              margin="dense"
+              name="email"
+              label="Email"
+              type="email"
+              fullWidth
+              value={formData.email || ''}
+              onChange={handleChange}
+            />
+            <TextField
+              margin="dense"
+              name="letter"
+              label="Letter"
+              type="text"
+              fullWidth
+              value={formData.letter}
+              onChange={handleChange}
+            />
+            <TextField
+              margin="dense"
+              name="employeeId"
+              label="Employee ID"
+              type="text"
+              fullWidth
+              value={formData.employeeId}
+              onChange={handleChange}
+            />
+            <TextField
+              margin="dense"
+              name="phone"
+              label="Phone"
+              type="text"
+              fullWidth
+              value={formData.phone}
+              onChange={handlePhoneChange}
+            />
+            <FormControl fullWidth margin="dense">
+              <InputLabel id="jobs-label">Jobs</InputLabel>
+              <Select
+                labelId="jobs-label"
+                multiple
+                value={formData.jobs}
+                onChange={handleJobChange}
+                renderValue={(selected) => selected.join(', ')}
+              >
+                {availableJobs.map((job) => (
+                  <MenuItem key={job} value={job}>
+                    <Checkbox checked={formData.jobs.indexOf(job) > -1} />
+                    <ListItemText primary={job} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth margin="dense">
+              <InputLabel id="team-label">Team</InputLabel>
+              <Select
+                labelId="team-label"
+                name="team"
+                value={formData.team}
+                onChange={handleChange}
+              >
+                {teams.map((team) => (
+                  <MenuItem key={team} value={team}>
+                    {team}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose} color="secondary">Cancel</Button>
+            <Button onClick={handleSave} color="primary">{selectedOperator ? 'Save' : 'Add'}</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </div>
   );
 };
 

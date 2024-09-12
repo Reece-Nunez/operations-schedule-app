@@ -91,26 +91,27 @@ router.put(
 
 // Publish an event
 router.put(
-  "/events/:id",
+  "/events/:id/publish",
   authenticate,
   authorize(["Clerk", "OLMC", "APS"]),
   async (req, res) => {
-    console.log("Request received to update event:", req.params.id); // Debugging line
+    console.log("Request received to publish event:", req.params.id);
     try {
       const event = await Event.findByPk(req.params.id);
       if (!event) {
         return res.status(404).send({ error: "Event not found" });
       }
 
-      await event.update(req.body); // Update the event with new data
+      await event.update({ published: true }); // Ensure published is set to true
 
       res.send(event);
     } catch (error) {
-      console.error("Error updating event:", error);
-      res.status(400).send({ error: "Failed to update event" });
+      console.error("Error publishing event:", error);
+      res.status(400).send({ error: "Failed to publish event" });
     }
   }
 );
+
 
 // Fetch all events
 router.get("/events", authenticate, async (req, res) => {

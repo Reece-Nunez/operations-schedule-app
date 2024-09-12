@@ -11,9 +11,23 @@ import {
   Modal,
   TextField,
   Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import MenuIcon from '@mui/icons-material/Menu';
+import PersonIcon from '@mui/icons-material/Person';
+import EventIcon from '@mui/icons-material/Event';
+import HomeIcon from '@mui/icons-material/Home';
+import EditIcon from '@mui/icons-material/Edit';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import Logout from './Logout';
 import moment from "moment-timezone";
+import { useUser } from '../contexts/UserContext';
 import { DateRangePicker } from "react-date-range";
 import axios from "axios";
 import { DataSet, Timeline } from "vis-timeline/standalone";
@@ -31,8 +45,28 @@ const jobColors = {
   "Tank Farm": "purple",
 };
 
+const Legend = () => (
+  <Box display="flex" justifyContent="space-around" marginBottom="1rem">
+    {Object.keys(jobColors).map((job) => (
+      <Box key={job} display="flex" alignItems="center">
+        <Box
+          sx={{
+            width: 16,
+            height: 16,
+            backgroundColor: jobColors[job],
+            marginRight: '0.5rem',
+          }}
+        />
+        <Typography variant="body1">{job}</Typography>
+      </Box>
+    ))}
+  </Box>
+);
+
 const EditSchedule = () => {
   const navigate = useNavigate();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { user } = useUser();
   const [operators, setOperators] = useState([]);
   const [unpublishedEvents, setUnpublishedEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({
@@ -497,7 +531,7 @@ const EditSchedule = () => {
         existingShifts.push({
           id: response.data.id, // Add necessary fields for future checks
           operatorId: newEvent.operatorId,
-          title: `${selectedOperator.name} - ${newEvent.shift} Shift`,
+          title: `${newEvent.shift} Shift`,
           start: startShift.toISOString(),
           end: endShift.toISOString(),
           shift: newEvent.shift,
@@ -548,288 +582,347 @@ const EditSchedule = () => {
     }
   };
 
+  const toggleDrawer = (open) => () => {
+    setDrawerOpen(open);
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ marginTop: 2 }}>
-      <Grid container direction="column" alignItems="center" spacing={2}>
-        <Grid item xs={12} container justifyContent="center">
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => navigate("/")}
-            sx={{ marginBottom: 1 }}
-          >
-            Back
-          </Button>
-        </Grid>
-        <Grid item xs={12} container justifyContent="center">
-          <Typography variant="h4" component="h2" gutterBottom align="center">
-            Edit Schedule
-          </Typography>
-        </Grid>
-        <Grid item xs={12}>
-          <Grid container spacing={2} justifyContent="center">
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Operator</InputLabel>
-                <Select
-                  name="operatorId"
-                  value={newEvent.operatorId}
-                  onChange={handleInputChange}
-                >
-                  {operators.map((operator) => (
-                    <MenuItem key={operator.id} value={operator.id}>
-                      {operator.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <IconButton 
+        onClick={toggleDrawer(true)} 
+        edge="start" 
+        color="inherit" 
+        aria-label="menu"
+        style={{ position: 'absolute', top: 20, left: 20 }}
+      >
+        <MenuIcon />
+      </IconButton>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Shift</InputLabel>
-                <Select
-                  name="shift"
-                  value={newEvent.shift}
-                  onChange={handleInputChange}
-                >
-                  <MenuItem value="Day">Day</MenuItem>
-                  <MenuItem value="Night">Night</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+      <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+        <Box
+          sx={{ width: 250 }}
+          role="presentation"
+          onClick={toggleDrawer(false)}
+          onKeyDown={toggleDrawer(false)}
+        >
+          <List>
+          <ListItem button onClick={() => navigate('/')}>
+              <ListItemIcon>
+                <HomeIcon/>
+              </ListItemIcon>
+              <ListItemText primary="Home" />
+            </ListItem>
+            
+            <ListItem button onClick={() => navigate('/profile')}>
+              <ListItemIcon>
+                <PersonIcon />
+              </ListItemIcon>
+              <ListItemText primary="Profile" />
+            </ListItem>
 
-            <Grid item xs={12}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Job</InputLabel>
-                <Select
-                  name="job"
-                  value={newEvent.job}
-                  onChange={handleInputChange}
-                >
-                  {Object.keys(jobColors).map((job) => (
-                    <MenuItem key={job} value={job}>
-                      {job}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+            <ListItem button onClick={() => navigate('/schedule')}>
+              <ListItemIcon>
+                <EventIcon />
+              </ListItemIcon>
+              <ListItemText primary="Schedule" />
+            </ListItem>
 
-            <Grid item xs={12}>
-              <Grid container justifyContent="center">
-                <DateRangePicker
-                  ranges={range}
-                  onChange={handleDateRangeChange}
-                  moveRangeOnFirstSelection={false}
-                  rangeColors={["#3f51b5"]}
-                />
+            {['OLMC', 'Clerk', 'APS', 'Admin'].includes(user.role) && (
+              <>
+                <ListItem button onClick={() => navigate('/edit-schedule')}>
+                  <ListItemIcon>
+                    <EditIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Edit Schedule" />
+                </ListItem>
+                <ListItem button onClick={() => navigate('/manage-operators')}>
+                  <ListItemIcon>
+                    <SupervisorAccountIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Manage Operators" />
+                </ListItem>
+              </>
+            )}
+
+            <Logout />
+          </List>
+        </Box>
+      </Drawer>
+      <Container maxWidth="lg" sx={{ marginTop: 2 }}>
+        <Grid container direction="column" alignItems="center" spacing={2}>
+          <Grid item xs={12} container justifyContent="center">
+          </Grid>
+          <Grid item xs={12} container justifyContent="center">
+            <Typography variant="h4" component="h2" gutterBottom align="center">
+              Edit Schedule
+            </Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Grid container spacing={2} justifyContent="center">
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Operator</InputLabel>
+                  <Select
+                    name="operatorId"
+                    value={newEvent.operatorId}
+                    onChange={handleInputChange}
+                  >
+                    {operators.map((operator) => (
+                      <MenuItem key={operator.id} value={operator.id}>
+                        {operator.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Shift</InputLabel>
+                  <Select
+                    name="shift"
+                    value={newEvent.shift}
+                    onChange={handleInputChange}
+                  >
+                    <MenuItem value="Day">Day</MenuItem>
+                    <MenuItem value="Night">Night</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Job</InputLabel>
+                  <Select
+                    name="job"
+                    value={newEvent.job}
+                    onChange={handleInputChange}
+                  >
+                    {Object.keys(jobColors).map((job) => (
+                      <MenuItem key={job} value={job}>
+                        {job}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Grid container justifyContent="center">
+                  <DateRangePicker
+                    ranges={range}
+                    onChange={handleDateRangeChange}
+                    moveRangeOnFirstSelection={false}
+                    rangeColors={["#3f51b5"]}
+                  />
+                </Grid>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSubmit}
+                  fullWidth
+                >
+                  Add Event
+                </Button>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handlePublish}
+                  fullWidth
+                >
+                  Publish Events
+                </Button>
               </Grid>
             </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmit}
-                fullWidth
-              >
-                Add Event
-              </Button>
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handlePublish}
-                fullWidth
-              >
-                Publish Events
-              </Button>
-            </Grid>
           </Grid>
         </Grid>
-      </Grid>
-      <Grid container justifyContent="space-between" sx={{ marginTop: 10 }}>
-        <Box sx={{ width: "100%", overflowX: "auto" }}>
-          <Grid container spacing={2} justifyContent="center" marginBottom={2}>
-            <Grid item>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => timelineInstance.current.moveTo(new Date())}
-              >
-                Today
-              </Button>
+        <Grid container justifyContent="space-between" sx={{ marginTop: 10 }}>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <Grid container spacing={2} justifyContent="center" marginBottom={2}>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => timelineInstance.current.moveTo(new Date())}
+                >
+                  Today
+                </Button>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => timelineInstance.current.zoomIn(0.5)}
+                >
+                  Zoom In
+                </Button>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => timelineInstance.current.zoomOut(0.5)}
+                >
+                  Zoom Out
+                </Button>
+              </Grid>
             </Grid>
-            <Grid item>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={() => timelineInstance.current.zoomIn(0.5)}
-              >
-                Zoom In
-              </Button>
-            </Grid>
-            <Grid item>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={() => timelineInstance.current.zoomOut(0.5)}
-              >
-                Zoom Out
-              </Button>
-            </Grid>
-          </Grid>
-          <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px" }} />
-        </Box>
-      </Grid>
+            <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px" }} />
+          </Box>
+        </Grid>
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        aria-labelledby="edit-event-modal"
-        aria-describedby="edit-event-modal-description"
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: 400,
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            p: 4,
-          }}
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          aria-labelledby="edit-event-modal"
+          aria-describedby="edit-event-modal-description"
         >
-          <Typography
-            id="edit-event-modal"
-            variant="h6"
-            component="h2"
-            gutterBottom
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 400,
+              bgcolor: "background.paper",
+              boxShadow: 24,
+              p: 4,
+            }}
           >
-            Edit Event
-          </Typography>
-          <TextField
-            name="title"
-            label="Title"
-            fullWidth
-            value={selectedEvent?.title || ""}
-            onChange={(e) =>
-              setSelectedEvent({ ...selectedEvent, title: e.target.value })
-            }
-            margin="normal"
-          />
-          <TextField
-            name="job"
-            label="Job"
-            fullWidth
-            value={selectedEvent?.job || ""}
-            onChange={(e) =>
-              setSelectedEvent({ ...selectedEvent, job: e.target.value })
-            }
-            margin="normal"
-          />
-          <TextField
-            name="start"
-            label="Start"
-            type="datetime-local"
-            fullWidth
-            value={
-              selectedEvent
-                ? moment(selectedEvent.start).format("YYYY-MM-DDTHH:mm")
-                : ""
-            }
-            onChange={(e) =>
-              setSelectedEvent({
-                ...selectedEvent,
-                start: new Date(e.target.value),
-              })
-            }
-            margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
-          />
-          <TextField
-            name="end"
-            label="End"
-            type="datetime-local"
-            fullWidth
-            value={
-              selectedEvent
-                ? moment(selectedEvent.end).format("YYYY-MM-DDTHH:mm")
-                : ""
-            }
-            onChange={(e) =>
-              setSelectedEvent({
-                ...selectedEvent,
-                end: new Date(e.target.value),
-              })
-            }
-            margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
-          />
-          <Grid container spacing={2} sx={{ marginTop: 2 }}>
-            <Grid item xs={12} sm={6}>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={handleSave}
-                sx={{ padding: "10px" }}
-              >
-                SAVE
-              </Button>
-            </Grid>
-
-            {selectedEvents.length === 1 && (
+            <Typography
+              id="edit-event-modal"
+              variant="h6"
+              component="h2"
+              gutterBottom
+            >
+              Edit Event
+            </Typography>
+            <TextField
+              name="title"
+              label="Title"
+              fullWidth
+              value={selectedEvent?.title || ""}
+              onChange={(e) =>
+                setSelectedEvent({ ...selectedEvent, title: e.target.value })
+              }
+              margin="normal"
+            />
+            <TextField
+              name="job"
+              label="Job"
+              fullWidth
+              value={selectedEvent?.job || ""}
+              onChange={(e) =>
+                setSelectedEvent({ ...selectedEvent, job: e.target.value })
+              }
+              margin="normal"
+            />
+            <TextField
+              name="start"
+              label="Start"
+              type="datetime-local"
+              fullWidth
+              value={
+                selectedEvent
+                  ? moment(selectedEvent.start).format("YYYY-MM-DDTHH:mm")
+                  : ""
+              }
+              onChange={(e) =>
+                setSelectedEvent({
+                  ...selectedEvent,
+                  start: new Date(e.target.value),
+                })
+              }
+              margin="normal"
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              name="end"
+              label="End"
+              type="datetime-local"
+              fullWidth
+              value={
+                selectedEvent
+                  ? moment(selectedEvent.end).format("YYYY-MM-DDTHH:mm")
+                  : ""
+              }
+              onChange={(e) =>
+                setSelectedEvent({
+                  ...selectedEvent,
+                  end: new Date(e.target.value),
+                })
+              }
+              margin="normal"
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <Grid container spacing={2} sx={{ marginTop: 2 }}>
               <Grid item xs={12} sm={6}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  onClick={handleSave}
+                  sx={{ padding: "10px" }}
+                >
+                  SAVE
+                </Button>
+              </Grid>
+
+              {selectedEvents.length === 1 && (
+                <Grid item xs={12} sm={6}>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    fullWidth
+                    onClick={handleDelete}
+                    sx={{ padding: "10px" }}
+                  >
+                    DELETE SINGLE EVENT
+                  </Button>
+                </Grid>
+              )}
+
+              {selectedEvents.length > 1 && (
+                <Grid item xs={12}>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    fullWidth
+                    onClick={handleBulkDelete}
+                    sx={{ padding: "10px" }}
+                  >
+                    DELETE SELECTED EVENTS
+                  </Button>
+                </Grid>
+              )}
+
+              <Grid item xs={12}>
                 <Button
                   variant="contained"
                   color="secondary"
                   fullWidth
-                  onClick={handleDelete}
+                  onClick={() => setModalOpen(false)}
                   sx={{ padding: "10px" }}
                 >
-                  DELETE SINGLE EVENT
+                  CANCEL
                 </Button>
               </Grid>
-            )}
-
-            {selectedEvents.length > 1 && (
-              <Grid item xs={12}>
-                <Button
-                  variant="contained"
-                  color="error"
-                  fullWidth
-                  onClick={handleBulkDelete}
-                  sx={{ padding: "10px" }}
-                >
-                  DELETE SELECTED EVENTS
-                </Button>
-              </Grid>
-            )}
-
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                color="secondary"
-                fullWidth
-                onClick={() => setModalOpen(false)}
-                sx={{ padding: "10px" }}
-              >
-                CANCEL
-              </Button>
             </Grid>
-          </Grid>
-        </Box>
-      </Modal>
-    </Container>
+          </Box>
+        </Modal>
+        <Legend />
+      </Container>
+    </div>
   );
 };
 

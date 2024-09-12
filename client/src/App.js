@@ -7,7 +7,6 @@ import Register from './components/Register';
 import ProtectedRoute from './components/ProtectedRoute';
 import ManageOperators from './components/ManageOperators';
 import OperatorDetail from './components/OperatorDetail';
-import AdminPanel from './components/AdminPanel';
 import EditSchedule from './components/EditSchedule';
 import { useUser } from './contexts/UserContext';
 
@@ -27,9 +26,6 @@ const App = () => {
         </Route>
         <Route element={<ProtectedRoute roles={['Operator', 'Clerk', 'OLMC', 'APS', 'Admin']} />}>
           <Route path="/home" element={<Home />} />
-        </Route>
-        <Route element={<ProtectedRoute roles={['Admin']} />}>
-          <Route path="/admin-panel" element={<AdminPanel />} />
         </Route>
         <Route path="/operator/:id" element={<OperatorDetail />} />
         {/* Add other protected routes here */}
