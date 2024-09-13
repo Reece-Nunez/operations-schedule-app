@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
     }
   };
+  
   User.init({
     name: {
       type: DataTypes.STRING,
@@ -21,8 +22,9 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     id: {
-      type:DataTypes.INTEGER,
+      type: DataTypes.INTEGER,
       allowNull: false,
+      autoIncrement: true,
       unique: true,
       primaryKey: true,
     },
@@ -42,10 +44,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    // Add the team field
+    team: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     
   }, {
     sequelize,
     modelName: 'User',
   });
+
   return User;
 };

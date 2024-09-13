@@ -29,7 +29,7 @@
     }
 
     const handleBack = () => {
-        navigate('/manage-operators');
+        navigate('/');
     }
 
     return (

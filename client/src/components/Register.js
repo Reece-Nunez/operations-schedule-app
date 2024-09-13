@@ -1,200 +1,268 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TextField, Button, Container, Typography, Box, MenuItem, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import axios from 'axios';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  TextField,
+  Button,
+  Container,
+  Typography,
+  Box,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Select,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
+import axios from "axios";
 
 const Register = () => {
-const [id, setId] = useState('');
-const [name, setName] = useState('');
-const [letter, setLetter] = useState('');
-const [email, setEmail] = useState('');
-const [password, setPassword] = useState('');
-const [role, setRole] = useState('Operator');
-const [phone, setPhone] = useState('');
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
-// State variables for password validation
-const [hasMinLength, setHasMinLength] = useState(false);
-const [hasUpperCase, setHasUpperCase] = useState(false);
-const [hasNumber, setHasNumber] = useState(false);
-const [hasSpecialChar, setHasSpecialChar] = useState(false);
+  // State for form data
+  const [formData, setFormData] = useState({
+    name: "",
+    letter: "",
+    email: "",
+    password: "",
+    role: "Operator",
+    phone: "",
+    team: "",
+  });
 
-const validatePassword = (password) => {
+  // State variables for password validation
+  const [hasMinLength, setHasMinLength] = useState(false);
+  const [hasUpperCase, setHasUpperCase] = useState(false);
+  const [hasNumber, setHasNumber] = useState(false);
+  const [hasSpecialChar, setHasSpecialChar] = useState(false);
+
+  // Teams array
+  const teams = ["A", "B", "C", "D"];
+
+  const validatePassword = (password) => {
     setHasMinLength(password.length >= 8);
     setHasUpperCase(/[A-Z]/.test(password));
     setHasNumber(/\d/.test(password));
     setHasSpecialChar(/[@$!%*?&]/.test(password));
-};
+  };
 
-const handlePasswordChange = (e) => {
+  const handlePasswordChange = (e) => {
     const newPassword = e.target.value;
-    setPassword(newPassword);
+    setFormData((prevData) => ({ ...prevData, password: newPassword }));
     validatePassword(newPassword);
-};
+  };
 
-const formatPhoneNumber = (value) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  const formatPhoneNumber = (value) => {
     if (!value) return value;
 
-    const phoneNumber = value.replace(/[^\d]/g, ''); // Remove all non-digit characters
+    const phoneNumber = value.replace(/[^\d]/g, ""); // Remove all non-digit characters
 
     const phoneNumberLength = phoneNumber.length;
     if (phoneNumberLength < 4) return phoneNumber;
     if (phoneNumberLength < 7) {
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
     }
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-};
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(
+      3,
+      6
+    )}-${phoneNumber.slice(6, 10)}`;
+  };
 
-const handlePhoneChange = (e) => {
+  const handlePhoneChange = (e) => {
     const formattedPhoneNumber = formatPhoneNumber(e.target.value);
-    setPhone(formattedPhoneNumber);
-};
+    setFormData((prevData) => ({
+      ...prevData,
+      phone: formattedPhoneNumber,
+    }));
+  };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!hasMinLength || !hasUpperCase || !hasNumber || !hasSpecialChar) {
-    alert('Please ensure the password meets all requirements.');
-    return;
+      alert("Please ensure the password meets all requirements.");
+      return;
     }
 
-    if (role === 'Operator' && !letter ) {
-        alert('The letter field is required for the Operator role.');
-        return;
+    if (formData.role === "Operator" && !formData.letter) {
+      alert("The letter field is required for the Operator role.");
+      return;
     }
 
     try {
-    const response = await axios.post('/api/register', { id, name, letter, email, password, role, phone });
-    if (response.status === 201) {
-        alert('Registration successful! Please log in.');
-        navigate('/login'); // Redirect to login after successful registration
-    }
+      const response = await axios.post("/api/register", formData);
+      if (response.status === 201) {
+        alert("Registration successful! Please log in.");
+        navigate("/login"); // Redirect to login after successful registration
+      }
     } catch (error) {
-    console.error('Registration error:', error);
-    alert('Registration failed. Please try again.');
+      console.error("Registration error:", error);
+      alert("Registration failed. Please try again.");
     }
-};
+  };
 
-return (
+  return (
     <Container maxWidth="sm">
-    <Typography variant="h4" component="h1" gutterBottom>
+      <Typography variant="h4" component="h1" gutterBottom>
         Register
-    </Typography>
-    <form onSubmit={handleSubmit}>
+      </Typography>
+      <form onSubmit={handleSubmit}>
         <TextField
-        label="Employee ID"
-        fullWidth
-        margin="normal"
-        value={id}
-        onChange={(e) => setId(e.target.value)}
-        required
+          label="Name"
+          fullWidth
+          margin="normal"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
         />
         <TextField
-        label="Name"
-        fullWidth
-        margin="normal"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        />
-        <TextField
-        select
-        label="Role"
-        fullWidth
-        margin="normal"
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-        required
+          select
+          label="Role"
+          fullWidth
+          margin="normal"
+          name="role"
+          value={formData.role}
+          onChange={handleChange}
+          required
         >
-        <MenuItem value="Operator">Operator</MenuItem>
-        <MenuItem value="OLMC">OLMC</MenuItem>
-        <MenuItem value="Clerk">Clerk</MenuItem>
-        <MenuItem value="APS">APS</MenuItem>
+          <MenuItem value="Operator">Operator</MenuItem>
+          <MenuItem value="OLMC">OLMC</MenuItem>
+          <MenuItem value="Clerk">Clerk</MenuItem>
+          <MenuItem value="APS">APS</MenuItem>
         </TextField>
-        {role === 'Operator' && (
-            <TextField
+
+        {formData.role === "APS" && (
+          <FormControl fullWidth margin="dense">
+            <InputLabel id="team-label">Team</InputLabel>
+            <Select
+              labelId="team-label"
+              name="team"
+              value={formData.team}
+              onChange={handleChange}
+            >
+              {teams.map((team) => (
+                <MenuItem key={team} value={team}>
+                  {team}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+
+        {formData.role === "Operator" && (
+          <TextField
             label="Operator Letter"
             fullWidth
             margin="normal"
-            value={letter}
-            onChange={(e) => setLetter(e.target.value)}
-            required={role === 'Operator'}
-            />
+            name="letter"
+            value={formData.letter}
+            onChange={handleChange}
+            required={formData.role === "Operator"}
+          />
         )}
         <TextField
-        label="Email"
-        type="email"
-        fullWidth
-        margin="normal"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
+          label="Email"
+          type="email"
+          fullWidth
+          margin="normal"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
         />
         <TextField
-        label="Phone Number"
-        type="tel"
-        fullWidth
-        margin="normal"
-        value={phone}
-        onChange={handlePhoneChange}
-        required
+          label="Phone Number"
+          type="tel"
+          fullWidth
+          margin="normal"
+          name="phone"
+          value={formData.phone}
+          onChange={handlePhoneChange}
+          required
         />
         <TextField
-        label="Password"
-        type="password"
-        fullWidth
-        margin="normal"
-        value={password}
-        onChange={handlePasswordChange}
-        required
+          label="Password"
+          type="password"
+          fullWidth
+          margin="normal"
+          name="password"
+          value={formData.password}
+          onChange={handlePasswordChange}
+          required
         />
         <List>
-        <ListItem>
+          <ListItem>
             <ListItemIcon>
-            {hasMinLength ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />}
+              {hasMinLength ? (
+                <CheckCircleIcon color="success" />
+              ) : (
+                <CancelIcon color="error" />
+              )}
             </ListItemIcon>
             <ListItemText primary="At least 8 characters long" />
-        </ListItem>
-        <ListItem>
+          </ListItem>
+          <ListItem>
             <ListItemIcon>
-            {hasUpperCase ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />}
+              {hasUpperCase ? (
+                <CheckCircleIcon color="success" />
+              ) : (
+                <CancelIcon color="error" />
+              )}
             </ListItemIcon>
             <ListItemText primary="At least one uppercase letter" />
-        </ListItem>
-        <ListItem>
+          </ListItem>
+          <ListItem>
             <ListItemIcon>
-            {hasNumber ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />}
+              {hasNumber ? (
+                <CheckCircleIcon color="success" />
+              ) : (
+                <CancelIcon color="error" />
+              )}
             </ListItemIcon>
             <ListItemText primary="At least one number" />
-        </ListItem>
-        <ListItem>
+          </ListItem>
+          <ListItem>
             <ListItemIcon>
-            {hasSpecialChar ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />}
+              {hasSpecialChar ? (
+                <CheckCircleIcon color="success" />
+              ) : (
+                <CancelIcon color="error" />
+              )}
             </ListItemIcon>
             <ListItemText primary="At least one special character (@$!%*?&)" />
-        </ListItem>
+          </ListItem>
         </List>
-        
+
         <Box mt={2}>
-        <Button type="submit" variant="contained" color="primary" fullWidth>
+          <Button type="submit" variant="contained" color="primary" fullWidth>
             Register
-        </Button>
+          </Button>
         </Box>
-    </form>
-    <Box mt={2}>
+      </form>
+      <Box mt={2}>
         <Button
-        variant="outlined"
-        color="secondary"
-        fullWidth
-        onClick={() => navigate('/login')} // Navigate back to login page
+          variant="outlined"
+          color="secondary"
+          fullWidth
+          onClick={() => navigate("/login")} // Navigate back to login page
         >
-        Back to Login
+          Back to Login
         </Button>
-    </Box>
+      </Box>
     </Container>
-);
+  );
 };
 
 export default Register;

@@ -1,52 +1,104 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useUser } from '../contexts/UserContext';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useUser } from "../contexts/UserContext";
 import {
-  Button, List, ListItem, Link as MuiLink, Dialog, DialogActions, DialogContent, 
-  DialogTitle, TextField, Select, MenuItem, FormControl, Typography, InputLabel, 
-  Checkbox, ListItemText, Box, IconButton, Grid, Paper, Drawer, ListItemIcon,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import PersonIcon from '@mui/icons-material/Person';
-import EventIcon from '@mui/icons-material/Event';
-import HomeIcon from '@mui/icons-material/Home';
-import EditIcon from '@mui/icons-material/Edit';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import Logout from './Logout';
-import { Link, useNavigate } from 'react-router-dom';
-import DeleteIcon from '@mui/icons-material/Delete';
+  Button,
+  List,
+  ListItem,
+  Link as MuiLink,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  Typography,
+  InputLabel,
+  Checkbox,
+  ListItemText,
+  Box,
+  IconButton,
+  Grid,
+  Paper,
+  Drawer,
+  ListItemIcon,
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import PersonIcon from "@mui/icons-material/Person";
+import EventIcon from "@mui/icons-material/Event";
+import HomeIcon from "@mui/icons-material/Home";
+import EditIcon from "@mui/icons-material/Edit";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
+import Logout from "./Logout";
+import { Link, useNavigate } from "react-router-dom";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const ManageOperators = () => {
   const { user } = useUser();
-  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const navigate = useNavigate();
   const [operators, setOperators] = useState([]);
   const [selectedOperator, setSelectedOperator] = useState(null);
+  const [apsUsers, setApsUsers] = useState([]); // State to hold APS users
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    letter: '',
-    employeeId: '',
-    phone: '',
+    name: "",
+    email: "",
+    letter: "",
+    employeeId: "",
+    phone: "",
     jobs: [],
-    team: '', // Add team field
+    team: "", // Add team field
   });
 
-  const availableJobs = ['FCC Console', 'VRU Console', '#1 Out', '#2 Out', '#3 Out', 'Tank Farm'];
-  const teams = ['A', 'B', 'C', 'D', 'Replacement', 'Probationary'];
+  const availableJobs = [
+    "FCC Console",
+    "VRU Console",
+    "#1 Out",
+    "#2 Out",
+    "#3 Out",
+    "Tank Farm",
+  ];
+  const teams = ["A", "B", "C", "D", "Replacement", "Probationary"];
 
+  // Fetch all operators
   useEffect(() => {
-    if (['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role)) {
-      const token = localStorage.getItem('token');
+    if (["Clerk", "OLMC", "APS", "Admin"].includes(user?.role)) {
+      const token = localStorage.getItem("token");
       if (token) {
-        axios.get('/api/operators', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-        .then(response => setOperators(response.data))
-        .catch(error => console.error('Error fetching operators:', error));
+        axios
+          .get("/api/operators", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .then((response) => {
+            console.log("Operators Data:", response.data);
+            setOperators(response.data);
+          })
+          .catch((error) => console.error("Error fetching APS users:", error));
+      }
+    }
+  }, [user]);
+
+  // Fetch all APS users
+  useEffect(() => {
+    if (["Clerk", "OLMC", "APS", "Admin"].includes(user?.role)) {
+      const token = localStorage.getItem("token");
+      if (token) {
+        axios
+          .get("/api/aps", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .then((response) => {
+            console.log("APS Data:", response.data);
+            setApsUsers(response.data); // Set the APS users to state
+          })
+          .catch((error) => console.error("Error fetching APS users:", error));
       }
     }
   }, [user]);
@@ -59,20 +111,20 @@ const ManageOperators = () => {
         letter: operator.letter,
         employeeId: operator.employeeId,
         phone: formatPhoneNumber(operator.phone), // Format the phone number
-        email: operator.email || '',
+        email: operator.email || "",
         jobs: operator.jobs || [],
-        team: operator.team || '', // Populate team
+        team: operator.team || "", // Populate team
       });
     } else {
       setSelectedOperator(null);
       setFormData({
-        name: '',
-        letter: '',
-        employeeId: '',
-        phone: '',
-        email: '',
+        name: "",
+        letter: "",
+        employeeId: "",
+        phone: "",
+        email: "",
         jobs: [],
-        team: '', // Default to empty string
+        team: "", // Default to empty string
       });
     }
     setOpen(true);
@@ -85,74 +137,95 @@ const ManageOperators = () => {
 
   const formatPhoneNumber = (value) => {
     if (!value) return value;
-    const phoneNumber = value.replace(/[^\d]/g, ''); // Remove all non-digit characters
+    const phoneNumber = value.replace(/[^\d]/g, ""); // Remove all non-digit characters
     const phoneNumberLength = phoneNumber.length;
     if (phoneNumberLength < 4) return phoneNumber;
     if (phoneNumberLength < 7) {
       return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
     }
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(
+      3,
+      6
+    )}-${phoneNumber.slice(6, 10)}`;
   };
 
   const handlePhoneChange = (e) => {
     const formattedPhoneNumber = formatPhoneNumber(e.target.value);
-    setFormData(prevState => ({
+    setFormData((prevState) => ({
       ...prevState,
-      phone: formattedPhoneNumber
+      phone: formattedPhoneNumber,
     }));
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.letter || !formData.phone || !formData.employeeId) {
-      console.error('All required fields must be filled, including Employee ID.');
+    if (
+      !formData.name ||
+      !formData.letter ||
+      !formData.phone ||
+      !formData.employeeId
+    ) {
+      console.error(
+        "All required fields must be filled, including Employee ID."
+      );
       return;
     }
-  
+
     const updatedFormData = { ...formData };
-  
+
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       let response;
-  
+
       if (selectedOperator && selectedOperator.id) {
-        response = await axios.put(`/api/operators/${selectedOperator.id}`, updatedFormData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setOperators(operators.map((op) => (op.id === selectedOperator.id ? response.data : op)));
+        response = await axios.put(
+          `/api/operators/${selectedOperator.id}`,
+          updatedFormData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setOperators(
+          operators.map((op) =>
+            op.id === selectedOperator.id ? response.data : op
+          )
+        );
       } else {
-        response = await axios.post('/api/operators', updatedFormData, {
+        response = await axios.post("/api/operators", updatedFormData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         setOperators([...operators, response.data]);
       }
-  
+
       handleClose();
     } catch (error) {
-      console.error('Error saving operator:', error.response?.data?.error || error.message);
+      console.error(
+        "Error saving operator:",
+        error.response?.data?.error || error.message
+      );
     }
   };
 
   const handleDelete = async (operatorId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await axios.delete(`/api/operators/${operatorId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-      setOperators(operators.filter(op => op.id !== operatorId));
+      setOperators(operators.filter((op) => op.id !== operatorId));
     } catch (error) {
-      console.error('Error deleting operator:', error);
+      console.error("Error deleting operator:", error);
     }
   };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFormData(prevState => ({
+    setFormData((prevState) => ({
       ...prevState,
       [name]: value,
     }));
@@ -162,18 +235,25 @@ const ManageOperators = () => {
     const {
       target: { value },
     } = event;
-    setFormData(prevState => ({
+    setFormData((prevState) => ({
       ...prevState,
-      jobs: typeof value === 'string' ? value.split(',') : value,
+      jobs: typeof value === "string" ? value.split(",") : value,
     }));
   };
 
+  // Group Operators by team
   const groupedOperators = operators.reduce((groups, operator) => {
-    const team = operator.team || 'No Team';
+    const team = operator.team || "No Team";
     if (!groups[team]) {
-      groups[team] = [];
+      groups[team] = { aps: null, operators: [] };
     }
-    groups[team].push(operator);
+
+    if (operator.role === "APS") {
+      groups[team].aps = operator; // Assign APS to the team
+    } else {
+      groups[team].operators.push(operator); // Add regular operator
+    }
+
     return groups;
   }, {});
 
@@ -182,13 +262,15 @@ const ManageOperators = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <IconButton 
-        onClick={toggleDrawer(true)} 
-        edge="start" 
-        color="inherit" 
+    <div
+      style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+    >
+      <IconButton
+        onClick={toggleDrawer(true)}
+        edge="start"
+        color="inherit"
         aria-label="menu"
-        style={{ position: 'absolute', top: 20, left: 20 }}
+        style={{ position: "absolute", top: 20, left: 20 }}
       >
         <MenuIcon />
       </IconButton>
@@ -201,35 +283,35 @@ const ManageOperators = () => {
           onKeyDown={toggleDrawer(false)}
         >
           <List>
-            <ListItem button onClick={() => navigate('/')}>
+            <ListItem button onClick={() => navigate("/")}>
               <ListItemIcon>
-                <HomeIcon/>
+                <HomeIcon />
               </ListItemIcon>
               <ListItemText primary="Home" />
             </ListItem>
-            <ListItem button onClick={() => navigate('/profile')}>
+            <ListItem button onClick={() => navigate("/profile")}>
               <ListItemIcon>
                 <PersonIcon />
               </ListItemIcon>
               <ListItemText primary="Profile" />
             </ListItem>
 
-            <ListItem button onClick={() => navigate('/schedule')}>
+            <ListItem button onClick={() => navigate("/schedule")}>
               <ListItemIcon>
                 <EventIcon />
               </ListItemIcon>
               <ListItemText primary="Schedule" />
             </ListItem>
 
-            {['OLMC', 'Clerk', 'APS', 'Admin'].includes(user.role) && (
+            {["OLMC", "Clerk", "APS", "Admin"].includes(user.role) && (
               <>
-                <ListItem button onClick={() => navigate('/edit-schedule')}>
+                <ListItem button onClick={() => navigate("/edit-schedule")}>
                   <ListItemIcon>
                     <EditIcon />
                   </ListItemIcon>
                   <ListItemText primary="Edit Schedule" />
                 </ListItem>
-                <ListItem button onClick={() => navigate('/manage-operators')}>
+                <ListItem button onClick={() => navigate("/manage-operators")}>
                   <ListItemIcon>
                     <SupervisorAccountIcon />
                   </ListItemIcon>
@@ -237,61 +319,94 @@ const ManageOperators = () => {
                 </ListItem>
               </>
             )}
-
             <Logout />
           </List>
         </Box>
       </Drawer>
-      <Box 
+      <Box
         display="flex"
         flexDirection="column"
         justifyContent="center"
         alignItems="center"
         width="100%"
         padding="1rem"
-      > 
+      >
         <Box width="100%" maxWidth="1200px" textAlign="center">
-          <Typography variant="h4" gutterBottom>Manage Operators</Typography>
-          {['Clerk', 'OLMC', 'APS', 'Admin'].includes(user?.role) ? (
+          <Typography variant="h4" gutterBottom>
+            Manage Operators
+          </Typography>
+          {["Clerk", "OLMC", "APS", "Admin"].includes(user?.role) ? (
             <>
               <Grid container spacing={3} justifyContent="center">
                 {teams.map((team) => (
                   <Grid item xs={12} sm={6} md={4} key={team}>
-                    <Paper elevation={3} style={{ padding: '1rem', minHeight: '200px' }}>
+                    <Paper
+                      elevation={3}
+                      style={{ padding: "1rem", minHeight: "200px" }}
+                    >
                       <Typography variant="h6" gutterBottom>
                         Team {team}
                       </Typography>
+
+                      {/* Display APS from the new state */}
+                      {apsUsers
+                        .filter((aps) => aps.team === team)
+                        .map((apsUser) => (
+                          <Typography
+                            key={apsUser.id}
+                            variant="body2"
+                            gutterBottom
+                          >
+                            <strong>APS:</strong> {apsUser.name} -{" "}
+                            {apsUser.phone}
+                          </Typography>
+                        ))}
+
                       <List>
-                        {groupedOperators[team] ? groupedOperators[team].map((operator) => (
-                          <ListItem key={operator.id} style={{ display: 'block', marginBottom: '10px' }}>
-                            <Typography variant="body1">
-                              <strong>{operator.name} - {operator.letter}</strong>
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Phone:</strong> {operator.phone}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Jobs:</strong> {operator.jobs.join(' | ')}
-                            </Typography>
-                            <Box display="flex" justifyContent="space-between" marginTop="0.5rem">
-                              <Button
-                                variant="outlined"
-                                color="primary"
-                                onClick={() => handleOpen(operator)}
+                        {groupedOperators[team]?.operators.length > 0 ? (
+                          groupedOperators[team].operators.map((operator) => (
+                            <ListItem
+                              key={operator.id}
+                              style={{ display: "block", marginBottom: "10px" }}
+                            >
+                              <Typography variant="body1">
+                                <strong>
+                                  {operator.name} - {operator.letter}
+                                </strong>
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Phone:</strong> {operator.phone}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Jobs:</strong>{" "}
+                                {operator.jobs.join(" | ")}
+                              </Typography>
+                              <Box
+                                display="flex"
+                                justifyContent="space-between"
+                                marginTop="0.5rem"
                               >
-                                Edit
-                              </Button>
-                              <IconButton
-                                edge="end"
-                                aria-label="delete"
-                                onClick={() => handleDelete(operator.id)}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Box>
-                          </ListItem>
-                        )) : (
-                          <Typography variant="body2">No operators in this team</Typography>
+                                <Button
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => handleOpen(operator)}
+                                >
+                                  Edit
+                                </Button>
+                                <IconButton
+                                  edge="end"
+                                  aria-label="delete"
+                                  onClick={() => handleDelete(operator.id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                            </ListItem>
+                          ))
+                        ) : (
+                          <Typography variant="body2">
+                            No operators in this team
+                          </Typography>
                         )}
                       </List>
                     </Paper>
@@ -314,9 +429,11 @@ const ManageOperators = () => {
             <p>You do not have permission to manage operators.</p>
           )}
         </Box>
-    
+
         <Dialog open={open} onClose={handleClose}>
-          <DialogTitle>{selectedOperator ? 'Edit Operator' : 'Add Operator'}</DialogTitle>
+          <DialogTitle>
+            {selectedOperator ? "Edit Operator" : "Add Operator"}
+          </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -334,7 +451,7 @@ const ManageOperators = () => {
               label="Email"
               type="email"
               fullWidth
-              value={formData.email || ''}
+              value={formData.email || ""}
               onChange={handleChange}
             />
             <TextField
@@ -371,7 +488,7 @@ const ManageOperators = () => {
                 multiple
                 value={formData.jobs}
                 onChange={handleJobChange}
-                renderValue={(selected) => selected.join(', ')}
+                renderValue={(selected) => selected.join(", ")}
               >
                 {availableJobs.map((job) => (
                   <MenuItem key={job} value={job}>
@@ -398,8 +515,12 @@ const ManageOperators = () => {
             </FormControl>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose} color="secondary">Cancel</Button>
-            <Button onClick={handleSave} color="primary">{selectedOperator ? 'Save' : 'Add'}</Button>
+            <Button onClick={handleClose} color="secondary">
+              Cancel
+            </Button>
+            <Button onClick={handleSave} color="primary">
+              {selectedOperator ? "Save" : "Add"}
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

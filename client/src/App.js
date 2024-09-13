@@ -27,7 +27,7 @@ const App = () => {
         <Route element={<ProtectedRoute roles={['Operator', 'Clerk', 'OLMC', 'APS', 'Admin']} />}>
           <Route path="/home" element={<Home />} />
         </Route>
-        <Route path="/operator/:id" element={<OperatorDetail />} />
+        <Route path="/operators/:id" element={<OperatorDetail />} />
         {/* Add other protected routes here */}
       </Routes>
     </Router>

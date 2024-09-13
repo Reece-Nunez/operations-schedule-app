@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Container, Typography, Drawer, List, ListItem, ListItemIcon,
-  ListItemText, IconButton, Box } from '@mui/material';
+  ListItemText, IconButton, Grid, Button, Box } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import PersonIcon from '@mui/icons-material/Person';
 import EventIcon from '@mui/icons-material/Event';
@@ -226,7 +226,45 @@ const Home = () => {
         <Typography variant="h3" component="h1" gutterBottom align='center'>
           Operations Schedule
         </Typography>
-
+        <Grid container justifyContent="space-between" sx={{ marginTop: 10 }}>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <Grid
+              container
+              spacing={2}
+              justifyContent="center"
+              marginBottom={2}
+            >
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => timelineInstance.current.moveTo(new Date())}
+                >
+                  Today
+                </Button>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => timelineInstance.current.zoomIn(0.5)}
+                >
+                  Zoom In
+                </Button>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => timelineInstance.current.zoomOut(0.5)}
+                >
+                  Zoom Out
+                </Button>
+              </Grid>
+            </Grid>
+            <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px" }} />
+          </Box>
+        </Grid>
         <Box sx={{ width: "100%", overflowX: "auto" }}>
           <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px", height: '70vh' }} />
         </Box>

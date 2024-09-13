@@ -19,15 +19,15 @@ import {
   IconButton,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import MenuIcon from '@mui/icons-material/Menu';
-import PersonIcon from '@mui/icons-material/Person';
-import EventIcon from '@mui/icons-material/Event';
-import HomeIcon from '@mui/icons-material/Home';
-import EditIcon from '@mui/icons-material/Edit';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import Logout from './Logout';
+import MenuIcon from "@mui/icons-material/Menu";
+import PersonIcon from "@mui/icons-material/Person";
+import EventIcon from "@mui/icons-material/Event";
+import HomeIcon from "@mui/icons-material/Home";
+import EditIcon from "@mui/icons-material/Edit";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
+import Logout from "./Logout";
 import moment from "moment-timezone";
-import { useUser } from '../contexts/UserContext';
+import { useUser } from "../contexts/UserContext";
 import { DateRangePicker } from "react-date-range";
 import axios from "axios";
 import { DataSet, Timeline } from "vis-timeline/standalone";
@@ -54,7 +54,7 @@ const Legend = () => (
             width: 16,
             height: 16,
             backgroundColor: jobColors[job],
-            marginRight: '0.5rem',
+            marginRight: "0.5rem",
           }}
         />
         <Typography variant="body1">{job}</Typography>
@@ -90,6 +90,22 @@ const EditSchedule = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState([]);
 
+  const fetchEvents = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const response = await axios.get("/api/events", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const unpublished = response.data.filter((event) => !event.published);
+      setUnpublishedEvents(unpublished);
+    } catch (error) {
+      console.error("Error fetching events", error);
+    }
+  };
+
   useEffect(() => {
     const fetchOperators = async () => {
       try {
@@ -104,23 +120,6 @@ const EditSchedule = () => {
         console.error("Error fetching operators", error);
       }
     };
-
-    const fetchEvents = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) throw new Error("No token found");
-
-        const response = await axios.get("/api/events", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const unpublished = response.data.filter((event) => !event.published);
-        setUnpublishedEvents(unpublished);
-      } catch (error) {
-        console.error("Error fetching events", error);
-      }
-    };
-
     fetchOperators();
     fetchEvents();
   }, []);
@@ -207,6 +206,7 @@ const EditSchedule = () => {
       console.log("Selected events deleted successfully");
       setSelectedEvents([]); // Clear selected events after deletion
       setModalOpen(false); // Close modal if it's open
+      fetchEvents();
     } catch (error) {
       console.error("Error deleting selected events:", error);
       alert("Failed to delete selected events.");
@@ -248,6 +248,7 @@ const EditSchedule = () => {
 
       if (response.ok) {
         setModalOpen(false); // Close the modal on success
+        fetchEvents();
       } else {
         const data = await response.json();
         if (response.status === 400 && data.error) {
@@ -286,6 +287,7 @@ const EditSchedule = () => {
       if (response.ok) {
         console.log("Event deleted successfully");
         setModalOpen(false);
+        fetchEvents();
       } else {
         console.error(
           "Failed to delete event",
@@ -302,7 +304,8 @@ const EditSchedule = () => {
     operatorId,
     newShiftStart,
     newShiftEnd,
-    shiftType
+    shiftType,
+    allShifts // Include this parameter to pass shifts created in the current submission
   ) => {
     newShiftStart = new Date(newShiftStart);
     newShiftEnd = new Date(newShiftEnd);
@@ -316,27 +319,55 @@ const EditSchedule = () => {
       .format("YYYY-MM-DD");
     const endDate = moment(newShiftEnd).endOf("week").format("YYYY-MM-DD");
 
-    const response = await axios.get(
-      `/api/events/operator/${operatorId}?from=${startDate}&to=${endDate}`,
+    // Fetch published events
+    const publishedResponse = await axios.get(
+      `/api/events/operator/${operatorId}?from=${startDate}&to=${endDate}&published=true`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
+    const publishedShifts = publishedResponse.data;
 
-    const existingShifts = response.data.sort((a, b) => new Date(a.start) - new Date(b.start));
+    // Fetch unpublished events
+    const unpublishedResponse = await axios.get(
+      `/api/events/operator/${operatorId}?from=${startDate}&to=${endDate}&published=false`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const unpublishedShifts = unpublishedResponse.data;
+
+    // Merge published, unpublished events and shifts created in the current submission
+    const combinedShifts = [
+      ...publishedShifts,
+      ...unpublishedShifts,
+      ...allShifts,
+    ];
+
+    combinedShifts.push({
+      id: null,
+      operatorId: newEvent.operatorId,
+      title: `${newEvent.shift} Shift`,
+      start: newShiftStart.toISOString(),
+      end: newShiftEnd.toISOString(),
+      shift: newEvent.shift,
+      job: newEvent.job,
+    });
+
+    // Ensure no duplicates and sort by start time
+    const allShiftsUnique = [
+      ...new Map(combinedShifts.map((shift) => [shift.id, shift])).values(),
+    ];
+    allShiftsUnique.sort((a, b) => new Date(a.start) - new Date(b.start));
+
     let consecutiveShifts = 0;
     let consecutiveNightShifts = 0;
     let lastShiftEnd = null;
-    let isNewSet = false; // Flag to check if we're starting a new set
 
-    console.log("Existing shifts: ", existingShifts);
+    console.log("Existing and current shifts: ", allShiftsUnique);
 
-    let currentSetShifts = []; // Track the shifts in the current set
-
-    // Iterate through each existing shift
-    existingShifts.forEach((shift, index) => {
+    // Iterate through each shift
+    for (let index = 0; index < allShiftsUnique.length; index++) {
+      const shift = allShiftsUnique[index];
       const shiftStart = new Date(shift.start);
       const shiftEnd = new Date(shift.end);
 
-      // Log the start and end time of the current shift
       console.log(
         `Processing shift ${index}: Start - ${shiftStart}, End - ${shiftEnd}`
       );
@@ -344,103 +375,51 @@ const EditSchedule = () => {
       if (lastShiftEnd) {
         const timeGap =
           (shiftStart.getTime() - lastShiftEnd.getTime()) / (60 * 60 * 1000); // Convert gap to hours
+
         console.log(
           `Time gap between last shift and current shift: ${timeGap} hours`
         );
 
-        // Check if there's more than 12 hours between the last shift and the current shift
+        // Check for overlapping shifts or zero-time gap between shifts
+        if (timeGap < 12) {
+          alert(
+            "Fatigue policy violation: Operator must have at least 12 hours of rest between shifts."
+          );
+          return false;
+        }
+
         if (timeGap > 12) {
           console.log(
             `Break detected between shifts at index ${index}. Starting a new set.`
           );
-
-          // Reset shift counters and the current set array
-          currentSetShifts = []; // Start a fresh array for the new set
-          consecutiveShifts = 1; // Start counting with the current shift
-          consecutiveNightShifts = shift.shift === "Night" ? 1 : 0; // Reset night shifts based on the current shift
-          lastShiftEnd = shiftEnd; // Update the lastShiftEnd to current shift's end time
-          currentSetShifts.push(shift); // Add current shift to the new set
-
-          console.log(
-            "Previous shifts discarded. New set starts with this shift."
-          );
+          consecutiveShifts = 1;
+          consecutiveNightShifts = shift.shift === "Night" ? 1 : 0;
         } else {
-          console.log(`No break detected. Continuing in the same set.`);
+          consecutiveShifts += 1;
+          if (shift.shift === "Night") {
+            consecutiveNightShifts += 1;
+          }
         }
       } else {
-        console.log(
-          `This is the first shift being processed. No previous shift to compare.`
-        );
+        consecutiveShifts = 1;
+        consecutiveNightShifts = shift.shift === "Night" ? 1 : 0;
       }
 
-      // Add shift to the current set tracking
-      currentSetShifts.push(shift);
-
-      // Increment shift counters within the same set
-      consecutiveShifts += 1;
-
-      if (shift.shift === "Night") {
-        consecutiveNightShifts += 1;
-        console.log(
-          `Night shift detected. Consecutive night shifts: ${consecutiveNightShifts}`
-        );
-      } else {
-        consecutiveNightShifts = 0; // Reset night shift counter for day shifts
-        console.log(`Day shift detected. Consecutive night shifts reset to 0.`);
-      }
+      lastShiftEnd = shiftEnd;
 
       console.log(`Consecutive shifts: ${consecutiveShifts}`);
+      console.log(`Consecutive night shifts: ${consecutiveNightShifts}`);
+    }
 
-      lastShiftEnd = shiftEnd; // Update the last shift end time
-    });
-
-    console.log(`Final consecutive shifts count: ${consecutiveShifts}`);
-    console.log(
-      `Final consecutive night shifts count: ${consecutiveNightShifts}`
-    );
-
-    // Check if the current shift violates the maximum allowed shifts or night shifts
     if (consecutiveShifts > 7 || consecutiveNightShifts > 4) {
-      console.log(
+      alert(
         "Fatigue policy violation: Operator has reached the maximum number of consecutive shifts or night shifts."
       );
-
-      // Alert the user about the fatigue policy violation and do not add the shift
-      const shiftTypeExceeded = consecutiveShifts > 7 ? "day" : "night";
-      alert(
-        `This set has reached the maximum number of consecutive ${shiftTypeExceeded} shifts. 48 hours of rest is required. Shift on ${newShiftStart.toDateString()} is not added.`
-      );
-
-      return false; // Stop the creation of the shift
+      return false;
     }
 
-    // Additional condition for checking rest time between last shift and new shift (if needed)
-    if (
-      !isNewSet &&
-      lastShiftEnd &&
-      newShiftStart.getTime() - lastShiftEnd.getTime() < 48 * 60 * 60 * 1000
-    ) {
-      const timeGap =
-        (newShiftStart.getTime() - lastShiftEnd.getTime()) / (60 * 60 * 1000); // Convert gap to hours
-      console.log(
-        `Checking rest time between last shift and new shift: ${timeGap} hours`
-      );
-
-      if (isNewSet && timeGap < 48) {
-        console.log(
-          "Fatigue policy violation: Operator needs at least 48 hours of rest before starting the next set."
-        );
-        alert(
-          "Operator needs at least 48 hours of rest before starting the next set."
-        );
-        return false;
-      }
-    }
-
-    console.log("Fatigue policy check passed.");
-    return true; // Allow the shift creation
+    return true;
   };
-
 
   const handleSubmit = async () => {
     try {
@@ -456,7 +435,6 @@ const EditSchedule = () => {
         return;
       }
 
-      // Set the current date to the start date and define the end date.
       let currentDate = moment
         .tz(newEvent.startDate, "America/Chicago")
         .startOf("day");
@@ -464,29 +442,25 @@ const EditSchedule = () => {
         .tz(newEvent.endDate, "America/Chicago")
         .startOf("day");
 
-      // Array to keep track of the shifts created in the current submission process
-      let existingShifts = [];
+      let allShifts = []; // Array to track shifts created during the current submission
 
-      // Loop through each day to create individual 12-hour shifts.
       while (
         currentDate.isBefore(endDate) ||
         currentDate.isSame(endDate, "day")
       ) {
         const startShift = currentDate.clone().set({
-          hour: newEvent.shift === "Day" ? 4 : 16, // 04:45 AM for Day, 04:45 PM for Night
+          hour: newEvent.shift === "Day" ? 4 : 16,
           minute: 45,
         });
 
         const endShift = startShift.clone().add(12, "hours");
 
-        // Debugging to ensure per-day shifts
         console.log(
           `Creating shift for date: ${currentDate.format(
             "YYYY-MM-DD"
           )} from ${startShift.format()} to ${endShift.format()}`
         );
 
-        // Each shift is now isolated per day
         const event = {
           operatorId: newEvent.operatorId,
           title: `${newEvent.shift} Shift`,
@@ -501,35 +475,33 @@ const EditSchedule = () => {
             ? "12-Hour"
             : "Unknown";
 
-        // Check the fatigue policy for each shift.
+        // Pass the shifts created during the current submission along with fatigue check
         const fatigueCheck = await checkFatiguePolicy(
           newEvent.operatorId,
           startShift,
           endShift,
           shiftType,
-          existingShifts // Pass existingShifts that include previously added shifts
+          allShifts // Pass the shifts created so far
         );
+
         if (!fatigueCheck) {
           console.log(
             `Fatigue policy violated for shift on ${currentDate.format(
               "YYYY-MM-DD"
             )}`
           );
-          return; // Stop execution if fatigue policy is violated.
+          return;
         }
 
-        // Log the payload before sending the request.
         console.log("Event payload being sent to the server:", event);
-        console.log("Existing shifts:", existingShifts);
+        console.log("Existing shifts:", allShifts);
 
-        // Send the POST request to create the event.
         const response = await axios.post("/api/events", event, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // Add the event to the existing shifts for future fatigue checks
-        existingShifts.push({
-          id: response.data.id, // Add necessary fields for future checks
+        allShifts.push({
+          id: response.data.id,
           operatorId: newEvent.operatorId,
           title: `${newEvent.shift} Shift`,
           start: startShift.toISOString(),
@@ -537,14 +509,12 @@ const EditSchedule = () => {
           shift: newEvent.shift,
         });
 
-        // Add the event to the unpublished events list.
         setUnpublishedEvents((prevEvents) => [...prevEvents, response.data]);
 
-        // Move to the next day for the loop.
         currentDate.add(1, "days");
+        console.log("Event added:", newEvent);
       }
 
-      // Reset the new event form and date range.
       setNewEvent({
         operatorId: "",
         shift: "",
@@ -587,13 +557,15 @@ const EditSchedule = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <IconButton 
-        onClick={toggleDrawer(true)} 
-        edge="start" 
-        color="inherit" 
+    <div
+      style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+    >
+      <IconButton
+        onClick={toggleDrawer(true)}
+        edge="start"
+        color="inherit"
         aria-label="menu"
-        style={{ position: 'absolute', top: 20, left: 20 }}
+        style={{ position: "absolute", top: 20, left: 20 }}
       >
         <MenuIcon />
       </IconButton>
@@ -606,36 +578,36 @@ const EditSchedule = () => {
           onKeyDown={toggleDrawer(false)}
         >
           <List>
-          <ListItem button onClick={() => navigate('/')}>
+            <ListItem button onClick={() => navigate("/")}>
               <ListItemIcon>
-                <HomeIcon/>
+                <HomeIcon />
               </ListItemIcon>
               <ListItemText primary="Home" />
             </ListItem>
-            
-            <ListItem button onClick={() => navigate('/profile')}>
+
+            <ListItem button onClick={() => navigate("/profile")}>
               <ListItemIcon>
                 <PersonIcon />
               </ListItemIcon>
               <ListItemText primary="Profile" />
             </ListItem>
 
-            <ListItem button onClick={() => navigate('/schedule')}>
+            <ListItem button onClick={() => navigate("/schedule")}>
               <ListItemIcon>
                 <EventIcon />
               </ListItemIcon>
               <ListItemText primary="Schedule" />
             </ListItem>
 
-            {['OLMC', 'Clerk', 'APS', 'Admin'].includes(user.role) && (
+            {["OLMC", "Clerk", "APS", "Admin"].includes(user.role) && (
               <>
-                <ListItem button onClick={() => navigate('/edit-schedule')}>
+                <ListItem button onClick={() => navigate("/edit-schedule")}>
                   <ListItemIcon>
                     <EditIcon />
                   </ListItemIcon>
                   <ListItemText primary="Edit Schedule" />
                 </ListItem>
-                <ListItem button onClick={() => navigate('/manage-operators')}>
+                <ListItem button onClick={() => navigate("/manage-operators")}>
                   <ListItemIcon>
                     <SupervisorAccountIcon />
                   </ListItemIcon>
@@ -650,8 +622,7 @@ const EditSchedule = () => {
       </Drawer>
       <Container maxWidth="lg" sx={{ marginTop: 2 }}>
         <Grid container direction="column" alignItems="center" spacing={2}>
-          <Grid item xs={12} container justifyContent="center">
-          </Grid>
+          <Grid item xs={12} container justifyContent="center"></Grid>
           <Grid item xs={12} container justifyContent="center">
             <Typography variant="h4" component="h2" gutterBottom align="center">
               Edit Schedule
@@ -744,7 +715,12 @@ const EditSchedule = () => {
         </Grid>
         <Grid container justifyContent="space-between" sx={{ marginTop: 10 }}>
           <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <Grid container spacing={2} justifyContent="center" marginBottom={2}>
+            <Grid
+              container
+              spacing={2}
+              justifyContent="center"
+              marginBottom={2}
+            >
               <Grid item>
                 <Button
                   variant="contained"
