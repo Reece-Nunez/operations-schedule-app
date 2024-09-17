@@ -5,7 +5,6 @@ import {
   Button,
   List,
   ListItem,
-  Link as MuiLink,
   Dialog,
   DialogActions,
   DialogContent,
@@ -32,7 +31,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import EditIcon from "@mui/icons-material/Edit";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import Logout from "./Logout";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 const ManageOperators = () => {

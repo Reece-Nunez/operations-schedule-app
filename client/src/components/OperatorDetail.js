@@ -1,7 +1,7 @@
     import React, { useState, useEffect } from 'react';
     import axios from 'axios';
     import { useNavigate, useParams } from 'react-router-dom';
-    import { Container, Typography, Box, Avatar, Grid, Button } from '@mui/material';
+    import { Container, Typography, Box, Avatar, Button } from '@mui/material';
 
     const OperatorDetail = () => {
     const { id } = useParams();

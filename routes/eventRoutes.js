@@ -2,7 +2,7 @@ const express = require("express");
 const { Event, Operator } = require("../models");
 const { authenticate, authorize } = require("../middleware/auth");
 const router = express.Router();
-const { Op } = require('sequelize');
+const { Op } = require("sequelize");
 
 // Helper function to check for overlapping events
 const isOverlapping = async (operatorId, start, end, eventId = null) => {
@@ -49,10 +49,11 @@ router.post(
         job,
         published: false,
       });
+      console.log("Created event:", event);
       res.status(201).send(event);
-    } catch (error) {
-      console.error("Error creating event:", error);
-      res.status(400).send({ error: "Failed to create event" });
+    } catch (creationError) {
+      console.error("Error during Event creation:", creationError);
+      res.status(500).send({ error: "Error creating event with job field." });
     }
   }
 );
@@ -111,7 +112,6 @@ router.put(
     }
   }
 );
-
 
 // Fetch all events
 router.get("/events", authenticate, async (req, res) => {

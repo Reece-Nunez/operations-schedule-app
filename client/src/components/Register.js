@@ -113,7 +113,8 @@ const Register = () => {
   };
 
   return (
-    <Container maxWidth="sm">
+    <div id="register-page">
+      <Container maxWidth="sm">
       <Typography variant="h4" component="h1" gutterBottom>
         Register
       </Typography>
@@ -262,6 +263,7 @@ const Register = () => {
         </Button>
       </Box>
     </Container>
+    </div>
   );
 };
 

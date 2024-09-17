@@ -39,29 +39,69 @@ import "react-date-range/dist/theme/default.css";
 const jobColors = {
   "FCC Console": "blue",
   "VRU Console": "green",
-  "#1 Out": "yellow",
+  "#1 Out": "navy",
   "#2 Out": "orange",
-  "#3 Out": "red",
+  "#3 Out": "lime",
   "Tank Farm": "purple",
+  Vacation: "indigo",
+  "Out Extra": "violet",
+  Training: "#2980b9",
+  Holiday: "olive",
+  ERT: "maroon",
+  Medical: "turquoise",
+  Overtime: "yellow",
+  Mandate: "red",
+  TurnAround: "gold",
 };
 
-const Legend = () => (
-  <Box display="flex" justifyContent="space-around" marginBottom="1rem">
-    {Object.keys(jobColors).map((job) => (
-      <Box key={job} display="flex" alignItems="center">
-        <Box
-          sx={{
-            width: 16,
-            height: 16,
-            backgroundColor: jobColors[job],
-            marginRight: "0.5rem",
-          }}
-        />
-        <Typography variant="body1">{job}</Typography>
+const Legend = () => {
+  // Split jobColors into two halves for two rows
+  const jobKeys = Object.keys(jobColors);
+  const halfLength = Math.ceil(jobKeys.length / 2);
+  const firstRow = jobKeys.slice(0, halfLength);
+  const secondRow = jobKeys.slice(halfLength);
+
+  return (
+    <Box margin="2rem">
+      {/* First Row */}
+      <Box display="flex" justifyContent="space-around" marginBottom="1rem">
+        {firstRow.map((job) => (
+          <Box key={job} display="flex" alignItems="center">
+            <Box
+              sx={{
+                width: 18,
+                height: 18,
+                backgroundColor: jobColors[job],
+                marginRight: "1rem",
+                borderRadius: "4px", // Adding rounded corners
+                boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)", // Adding shadow
+              }}
+            />
+            <Typography variant="body1">{job}</Typography>
+          </Box>
+        ))}
       </Box>
-    ))}
-  </Box>
-);
+      {/* Second Row */}
+      <Box display="flex" justifyContent="space-around">
+        {secondRow.map((job) => (
+          <Box key={job} display="flex" alignItems="center">
+            <Box
+              sx={{
+                width: 18,
+                height: 18,
+                backgroundColor: jobColors[job],
+                marginRight: "1rem",
+                borderRadius: "4px", // Adding rounded corners
+                boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)", // Adding shadow
+              }}
+            />
+            <Typography variant="body1">{job}</Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+};
 
 const EditSchedule = () => {
   const navigate = useNavigate();
@@ -89,6 +129,25 @@ const EditSchedule = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState([]);
+  const [vacationModalOpen, setVacationModalOpen] = useState(false);
+  const [vacationData, setVacationData] = useState({
+    hoursOff: "", // How many hours off: 4, 8, or 12
+    partOfShift: "", // First or last 4/8 hours
+    shiftType: "Day", // Day or Night shift
+    remainingJob: "",
+  });
+
+  const [mandateOvertimeModalOpen, setMandateOvertimeModalOpen] =
+    useState(false);
+  const [mandateOvertimeJob, setMandateOvertimeJob] = useState("");
+  const [mandateOvertimeType, setMandateOvertimeType] = useState(""); // Either 'Mandate' or 'Overtime'
+
+  // State for Overtime Shift
+  const [overtimeShiftLength, setOvertimeShiftLength] = useState("12");
+  const [overtimeShiftPart, setOvertimeShiftPart] = useState("full");
+
+  const [trainingModalOpen, setTrainingModalOpen] = useState(false);
+  const [trainingJob, setTrainingJob] = useState(""); // Job selected for training
 
   const fetchEvents = async () => {
     try {
@@ -135,7 +194,9 @@ const EditSchedule = () => {
         content: `${event.title}`,
         start: event.start,
         end: event.end,
-        style: `background-color: ${jobColors[event.job] || "gray"};`,
+        style: `background-color: ${
+          jobColors[event.job] || "gray"
+        }; color: white; border-radius: 5px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #333;`, // Adding styling
       }))
     );
 
@@ -161,9 +222,52 @@ const EditSchedule = () => {
       zoomable: false,
       horizontalScroll: false,
       multiselect: true,
+      template: function (item) {
+        // Determine if the job is 'Overtime'
+        const isOvertime = item.content.includes("Overtime");
+        // Apply custom styling conditionally
+        return `<div style="color: ${
+          isOvertime ? "black" : "white"
+        }; padding: 5px;">
+                  ${item.content}
+                </div>`;
+      },
     };
 
     timelineInstance.current = new Timeline(container, items, groups, options);
+
+    // Set the default zoom level to be 4 steps away from zoomMax
+    const zoomLevel = options.zoomMax / 4;
+    const windowStart = new Date(Date.now() - zoomLevel);
+    const windowEnd = new Date(Date.now() + zoomLevel);
+    timelineInstance.current.setWindow(windowStart, windowEnd);
+
+    if (timelineInstance.current) {
+      // Show the tooltip on hover
+      timelineInstance.current.on("itemover", function (properties) {
+        const tooltip = document.getElementById("custom-tooltip");
+        const event = unpublishedEvents.find(
+          (evt) => evt.id === properties.item
+        );
+        if (event) {
+          tooltip.innerHTML = `Title: ${event.title}<br>Job: ${event.job}`;
+          tooltip.style.display = "block";
+        }
+      });
+
+      // Hide the tooltip when not hovering
+      timelineInstance.current.on("itemout", function () {
+        const tooltip = document.getElementById("custom-tooltip");
+        tooltip.style.display = "none";
+      });
+
+      // Move the tooltip with the mouse
+      timelineInstance.current.on("mouseMove", function (properties) {
+        const tooltip = document.getElementById("custom-tooltip");
+        tooltip.style.left = properties.event.pageX + 10 + "px";
+        tooltip.style.top = properties.event.pageY + 10 + "px";
+      });
+    }
 
     // Add event click listener
     timelineInstance.current.on("select", (properties) => {
@@ -186,7 +290,11 @@ const EditSchedule = () => {
       }
     });
 
-    return () => timelineInstance.current.destroy();
+    return () => {
+      if (timelineInstance.current) {
+        timelineInstance.current.destroy();
+      }
+    };
   }, [unpublishedEvents, operators]);
 
   const handleBulkDelete = async () => {
@@ -215,7 +323,29 @@ const EditSchedule = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewEvent((prevEvent) => ({ ...prevEvent, [name]: value }));
+
+    if (name === "job") {
+      if (value === "Training") {
+        setTrainingModalOpen(true); // Open the training modal
+      } else if (value === "Vacation") {
+        setVacationModalOpen(true);
+      } else if (value === "Mandate" || value === "Overtime") {
+        setMandateOvertimeType(value);
+        setMandateOvertimeModalOpen(true);
+      } else {
+        // Handle other jobs normally
+        setNewEvent((prevEvent) => ({
+          ...prevEvent,
+          [name]: value,
+        }));
+      }
+    } else {
+      // Handle other input changes normally
+      setNewEvent((prevEvent) => ({
+        ...prevEvent,
+        [name]: value,
+      }));
+    }
   };
 
   const handleDateRangeChange = (ranges) => {
@@ -333,7 +463,7 @@ const EditSchedule = () => {
     );
     const unpublishedShifts = unpublishedResponse.data;
 
-    // Merge published, unpublished events and shifts created in the current submission
+    // Merge published, unpublished events, and shifts created in the current submission
     const combinedShifts = [
       ...publishedShifts,
       ...unpublishedShifts,
@@ -380,18 +510,35 @@ const EditSchedule = () => {
           `Time gap between last shift and current shift: ${timeGap} hours`
         );
 
-        // Check for overlapping shifts or zero-time gap between shifts
-        if (timeGap < 12) {
-          alert(
-            "Fatigue policy violation: Operator must have at least 12 hours of rest between shifts."
-          );
-          return false;
-        }
-
+        // If time gap is more than 12 hours, the set is considered over
         if (timeGap > 12) {
           console.log(
-            `Break detected between shifts at index ${index}. Starting a new set.`
+            `Break detected between shifts at index ${index}. Checking if rest period meets fatigue policy requirements.`
           );
+
+          // Fatigue policy check when the set is over
+          if (consecutiveShifts >= 7 && timeGap < 48) {
+            alert(
+              "Fatigue policy violation: Operator has worked 7 or more consecutive shifts and needs at least 48 hours of rest."
+            );
+            return false;
+          }
+
+          if (consecutiveNightShifts >= 4 && timeGap < 48) {
+            alert(
+              "Fatigue policy violation: Operator has worked 4 or more consecutive night shifts and needs at least 48 hours of rest."
+            );
+            return false;
+          }
+
+          if (consecutiveShifts === 3 && timeGap < 36) {
+            alert(
+              "Fatigue policy violation: Operator has worked 3 shifts and needs at least 36 hours of rest."
+            );
+            return false;
+          }
+
+          // Start a new set
           consecutiveShifts = 1;
           consecutiveNightShifts = shift.shift === "Night" ? 1 : 0;
         } else {
@@ -409,16 +556,39 @@ const EditSchedule = () => {
 
       console.log(`Consecutive shifts: ${consecutiveShifts}`);
       console.log(`Consecutive night shifts: ${consecutiveNightShifts}`);
-    }
 
-    if (consecutiveShifts > 7 || consecutiveNightShifts > 4) {
-      alert(
-        "Fatigue policy violation: Operator has reached the maximum number of consecutive shifts or night shifts."
-      );
-      return false;
+      // Immediate check for maximum consecutive shifts (violation regardless of time gap)
+      if (consecutiveShifts > 7) {
+        alert(
+          "Fatigue policy violation: Operator has exceeded the maximum number of consecutive shifts."
+        );
+        return false;
+      }
     }
 
     return true;
+  };
+
+  // Function to check if the job is already taken by another operator
+  const isJobTaken = async (job, startDate, endDate) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      // Fetch all events for the specified job and date range
+      const response = await axios.get(
+        `/api/events?job=${job}&from=${startDate}&to=${endDate}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // If there are any events returned, the job is taken
+      return response.data.length > 0;
+    } catch (error) {
+      console.error("Error checking job availability:", error);
+      return false; // If there's an error, assume the job is not taken to avoid false positives
+    }
   };
 
   const handleSubmit = async () => {
@@ -426,13 +596,27 @@ const EditSchedule = () => {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("No token found");
 
-      const selectedOperator = operators.find(
-        (operator) => operator.id === newEvent.operatorId
-      );
+      // Define jobs that require training and can't overlap
+      const jobsRequiringTraining = [
+        "FCC Console",
+        "VRU Console",
+        "#1 Out",
+        "#2 Out",
+        "#3 Out",
+        "Tank Farm",
+      ];
 
-      if (!selectedOperator.jobs.includes(newEvent.job)) {
-        alert(`Operator is not trained for job: ${newEvent.job}`);
-        return;
+      // Check if the job requires training
+      if (jobsRequiringTraining.includes(newEvent.job)) {
+        const selectedOperator = operators.find(
+          (operator) => operator.id === newEvent.operatorId
+        );
+
+        // If the job requires training, check if the operator is trained for it
+        if (!selectedOperator.jobs.includes(newEvent.job)) {
+          alert(`Operator is not trained for job: ${newEvent.job}`);
+          return;
+        }
       }
 
       let currentDate = moment
@@ -454,6 +638,22 @@ const EditSchedule = () => {
         });
 
         const endShift = startShift.clone().add(12, "hours");
+
+        // Check for job conflict
+        if (jobsRequiringTraining.includes(newEvent.job)) {
+          const jobTaken = await isJobTaken(
+            newEvent.job,
+            startShift.toISOString(),
+            endShift.toISOString()
+          );
+
+          if (jobTaken) {
+            alert(
+              `The job ${newEvent.job} is already assigned to another operator for the selected shift and date.`
+            );
+            return;
+          }
+        }
 
         console.log(
           `Creating shift for date: ${currentDate.format(
@@ -503,7 +703,7 @@ const EditSchedule = () => {
         allShifts.push({
           id: response.data.id,
           operatorId: newEvent.operatorId,
-          title: `${newEvent.shift} Shift`,
+          title: `${newEvent.shift}`,
           start: startShift.toISOString(),
           end: endShift.toISOString(),
           shift: newEvent.shift,
@@ -554,6 +754,290 @@ const EditSchedule = () => {
 
   const toggleDrawer = (open) => () => {
     setDrawerOpen(open);
+  };
+
+  const handleVacationSubmit = async () => {
+    const { hoursOff, partOfShift, shiftType, remainingJob } = vacationData;
+
+    // Logic to determine the start and end times based on the user's selection
+    let startShift = moment(newEvent.startDate).startOf("day");
+    let endShift = moment(newEvent.startDate).startOf("day");
+    let jobStartShift, jobEndShift;
+
+    // Set the startShift time for Day or Night shift
+    if (shiftType === "Day") {
+      startShift.set({ hour: 4, minute: 45 });
+    } else {
+      startShift.set({ hour: 16, minute: 45 });
+    }
+
+    // Adjust endShift based on hoursOff and partOfShift
+    if (hoursOff === "4") {
+      if (partOfShift === "first-4") {
+        endShift = startShift.clone().add(4, "hours"); // Vacation is the first 4 hours
+        jobStartShift = endShift.clone(); // Remaining job starts after vacation
+        jobEndShift = startShift.clone().add(12, "hours");
+      } else {
+        // "last-4"
+        jobStartShift = startShift.clone(); // Job starts at the beginning of the shift
+        jobEndShift = startShift.clone().add(8, "hours"); // Job ends before the last 4 hours
+        startShift = jobEndShift.clone(); // Vacation starts after job ends
+        endShift = startShift.clone().add(4, "hours");
+      }
+    } else if (hoursOff === "8") {
+      if (partOfShift === "first-8") {
+        endShift = startShift.clone().add(8, "hours"); // Vacation is the first 8 hours
+        jobStartShift = endShift.clone(); // Remaining job starts after vacation
+        jobEndShift = startShift.clone().add(12, "hours");
+      } else {
+        // "last-8"
+        jobStartShift = startShift.clone(); // Job starts at the beginning of the shift
+        jobEndShift = startShift.clone().add(4, "hours"); // Job ends before the last 8 hours
+        startShift = jobEndShift.clone(); // Vacation starts after job ends
+        endShift = startShift.clone().add(8, "hours");
+      }
+    } else {
+      endShift = startShift.clone().add(12, "hours"); // Full shift
+    }
+
+    try {
+      // Add the vacation shift with the correct job field
+      await handleSubmitVacationShift(startShift, endShift, "Vacation");
+
+      // If there's a partial shift remaining, add a job event for the remaining hours
+      if (hoursOff !== "12" && remainingJob) {
+        await handleSubmitJobShift(jobStartShift, jobEndShift, remainingJob);
+      }
+    } catch (error) {
+      console.error("Error submitting vacation shifts:", error);
+    }
+
+    // Close the vacation modal
+    setVacationModalOpen(false);
+  };
+
+  // Updated function to handle adding the job shift for the remaining hours
+  const handleSubmitJobShift = async (startShift, endShift, job) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const response = await axios.post(
+        "/api/events",
+        {
+          operatorId: newEvent.operatorId,
+          title: `${newEvent.shift}s | ${job}`,
+          start: startShift.toDate(),
+          end: endShift.toDate(),
+          shift: newEvent.shift,
+          job: job,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setUnpublishedEvents((prevEvents) => [...prevEvents, response.data]);
+    } catch (error) {
+      console.error("Error adding job shift:", error);
+      alert(error.response?.data?.error || "Failed to create job shift.");
+    }
+  };
+
+  // New function to handle adding the vacation shift
+  const handleSubmitVacationShift = async (startShift, endShift, job) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const response = await axios.post(
+        "/api/events",
+        {
+          operatorId: newEvent.operatorId,
+          title: "Vacation",
+          start: startShift.toDate(),
+          end: endShift.toDate(),
+          shift: newEvent.shift,
+          job: job,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setUnpublishedEvents((prevEvents) => [...prevEvents, response.data]);
+    } catch (error) {
+      console.error("Error adding vacation shift:", error);
+      alert(error.response?.data?.error || "Failed to create vacation shift.");
+    }
+  };
+
+  const handleMandateOvertimeSubmit = async () => {
+    const { operatorId, shift } = newEvent;
+    const jobType = mandateOvertimeType; // "Mandate" or "Overtime"
+    const job = mandateOvertimeJob; // Selected job from the modal
+
+    // Create the title string as "Mandate | #1 Out" or "Overtime | #3 Out"
+    const title = `${shift} Shift | ${job}`;
+
+    // Determine the start and end times for the shift
+    let startShift = moment(newEvent.startDate);
+    let endShift;
+
+    if (shift === "Day") {
+      startShift.set({ hour: 4, minute: 45 });
+    } else {
+      startShift.set({ hour: 16, minute: 45 });
+    }
+
+    // Calculate endShift based on selected overtime shift length and part
+    if (overtimeShiftLength === "4") {
+      if (overtimeShiftPart === "beginning") {
+        endShift = startShift.clone().add(4, "hours");
+      } else {
+        startShift = startShift.clone().add(8, "hours");
+        endShift = startShift.clone().add(4, "hours");
+      }
+    } else if (overtimeShiftLength === "8") {
+      if (overtimeShiftPart === "beginning") {
+        endShift = startShift.clone().add(8, "hours");
+      } else {
+        startShift = startShift.clone().add(4, "hours");
+        endShift = startShift.clone().add(8, "hours");
+      }
+    } else {
+      // Full 12-hour shift
+      endShift = startShift.clone().add(12, "hours");
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      // Fatigue Policy Check
+      const shiftType = `${overtimeShiftLength}-Hour`; // Adjusted shiftType
+      const allShifts = []; // Initialize an empty array to pass the created shifts
+
+      const fatigueCheck = await checkFatiguePolicy(
+        operatorId,
+        startShift,
+        endShift,
+        shiftType,
+        allShifts
+      );
+
+      if (!fatigueCheck) {
+        console.log(
+          `Fatigue policy violated for ${jobType} on ${startShift.format(
+            "YYYY-MM-DD"
+          )}`
+        );
+        return;
+      }
+
+      // If the fatigue policy check passes, create the event
+      const response = await axios.post(
+        "/api/events",
+        {
+          operatorId,
+          title,
+          start: startShift.toDate(),
+          end: endShift.toDate(),
+          shift,
+          job: jobType, // Store as "Mandate" or "Overtime" for color mapping
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setUnpublishedEvents((prevEvents) => [...prevEvents, response.data]);
+      setMandateOvertimeModalOpen(false);
+    } catch (error) {
+      console.error(`Error adding ${jobType.toLowerCase()} shift:`, error);
+      alert(
+        error.response?.data?.error ||
+          `Failed to create ${jobType.toLowerCase()} shift.`
+      );
+    }
+  };
+
+  const handleTrainingSubmit = async () => {
+    // Make sure that `newEvent` contains the selected operatorId and shift type
+    const { operatorId, shift, startDate, endDate } = newEvent;
+
+    if (!operatorId || !shift) {
+      alert("Please select an operator and shift type.");
+      return;
+    }
+
+    let currentDate = moment(startDate).startOf("day");
+    const endDateMoment = moment(endDate).startOf("day");
+
+    let allShifts = []; // Array to track shifts created during the current submission
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      while (
+        currentDate.isBefore(endDateMoment) ||
+        currentDate.isSame(endDateMoment, "day")
+      ) {
+        let startShift = currentDate.clone().set({
+          hour: shift === "Day" ? 4 : 16,
+          minute: 45,
+        });
+        let endShift = startShift.clone().add(12, "hours");
+
+        const event = {
+          operatorId: operatorId,
+          title: `${shift} Shift | Training for ${trainingJob}`,
+          start: startShift.toDate(),
+          end: endShift.toDate(),
+          shift: shift,
+          job: "Training", // Setting the job as 'Training'
+        };
+
+        // Fatigue Policy Check (optional)
+        const shiftType = `${12}-Hour`;
+        const fatigueCheck = await checkFatiguePolicy(
+          operatorId,
+          startShift,
+          endShift,
+          shiftType,
+          allShifts
+        );
+
+        if (!fatigueCheck) {
+          console.log(
+            `Fatigue policy violated for training on ${currentDate.format(
+              "YYYY-MM-DD"
+            )}`
+          );
+          return;
+        }
+
+        // Send the event to the server
+        const response = await axios.post("/api/events", event, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Update the event list with the new event
+        allShifts.push({
+          id: response.data.id,
+          operatorId: operatorId,
+          title: `${shift} Shift | Training`,
+          start: startShift.toISOString(),
+          end: endShift.toISOString(),
+          shift: shift,
+        });
+
+        setUnpublishedEvents((prevEvents) => [...prevEvents, response.data]);
+
+        currentDate.add(1, "days"); // Move to the next day
+      }
+
+      setTrainingModalOpen(false); // Close the modal after creating the events
+      setTrainingJob(""); // Reset the training job state
+    } catch (error) {
+      console.error("Error adding training events:", error);
+      alert(error.response?.data?.error || "Failed to create training events.");
+    }
   };
 
   return (
@@ -638,11 +1122,13 @@ const EditSchedule = () => {
                     value={newEvent.operatorId}
                     onChange={handleInputChange}
                   >
-                    {operators.map((operator) => (
-                      <MenuItem key={operator.id} value={operator.id}>
-                        {operator.name}
-                      </MenuItem>
-                    ))}
+                    {operators
+                      .sort((a, b) => a.name.localeCompare(b.name)) // Sort the operators alphabetically by name
+                      .map((operator) => (
+                        <MenuItem key={operator.id} value={operator.id}>
+                          {operator.name}
+                        </MenuItem>
+                      ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -654,6 +1140,7 @@ const EditSchedule = () => {
                     name="shift"
                     value={newEvent.shift}
                     onChange={handleInputChange}
+                    sx={{ boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)" }}
                   >
                     <MenuItem value="Day">Day</MenuItem>
                     <MenuItem value="Night">Night</MenuItem>
@@ -667,7 +1154,8 @@ const EditSchedule = () => {
                   <Select
                     name="job"
                     value={newEvent.job}
-                    onChange={handleInputChange}
+                    onChange={handleInputChange} // Ensure this function is triggered
+                    sx={{ boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)" }}
                   >
                     {Object.keys(jobColors).map((job) => (
                       <MenuItem key={job} value={job}>
@@ -749,10 +1237,14 @@ const EditSchedule = () => {
                 </Button>
               </Grid>
             </Grid>
-            <Box ref={timelineRef} sx={{ width: "100%", minWidth: "800px" }} />
+            <Box
+              sx={{ width: "100%", height: "auto", overflowX: "auto" }}
+              className="timeline-container"
+            >
+              <Box ref={timelineRef} style={{ width: "100%" }} />
+            </Box>
           </Box>
         </Grid>
-
         <Modal
           open={modalOpen}
           onClose={() => setModalOpen(false)}
@@ -896,8 +1388,291 @@ const EditSchedule = () => {
             </Grid>
           </Box>
         </Modal>
+        <Modal
+          open={vacationModalOpen}
+          onClose={() => setVacationModalOpen(false)}
+          aria-labelledby="vacation-modal"
+          aria-describedby="vacation-modal-description"
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 400,
+              bgcolor: "background.paper",
+              boxShadow: 24,
+              p: 4,
+            }}
+          >
+            <Typography
+              id="vacation-modal"
+              variant="h6"
+              component="h2"
+              gutterBottom
+            >
+              Vacation Time Selection
+            </Typography>
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Hours Off</InputLabel>
+              <Select
+                name="hoursOff"
+                value={vacationData.hoursOff}
+                onChange={(e) =>
+                  setVacationData((prev) => ({
+                    ...prev,
+                    hoursOff: e.target.value,
+                  }))
+                }
+              >
+                <MenuItem value="4">4 hours</MenuItem>
+                <MenuItem value="8">8 hours</MenuItem>
+                <MenuItem value="12">12 hours</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Part of Shift</InputLabel>
+              <Select
+                name="partOfShift"
+                value={vacationData.partOfShift}
+                onChange={(e) =>
+                  setVacationData((prev) => ({
+                    ...prev,
+                    partOfShift: e.target.value,
+                  }))
+                }
+              >
+                <MenuItem value="first-4">First 4 hours</MenuItem>
+                <MenuItem value="last-4">Last 4 hours</MenuItem>
+                {vacationData.hoursOff === "8" && (
+                  <>
+                    <MenuItem value="first-8">First 8 hours</MenuItem>
+                    <MenuItem value="last-8">Last 8 hours</MenuItem>
+                  </>
+                )}
+                {vacationData.hoursOff === "12" && (
+                  <MenuItem value="full">Full 12 hours</MenuItem>
+                )}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Shift Type</InputLabel>
+              <Select
+                name="shiftType"
+                value={vacationData.shiftType}
+                onChange={(e) =>
+                  setVacationData((prev) => ({
+                    ...prev,
+                    shiftType: e.target.value,
+                  }))
+                }
+              >
+                <MenuItem value="Day">Day</MenuItem>
+                <MenuItem value="Night">Night</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* New Field for selecting the job for the remaining hours */}
+            {vacationData.hoursOff !== "12" && (
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Job for Remaining Hours</InputLabel>
+                <Select
+                  name="remainingJob"
+                  value={vacationData.remainingJob}
+                  onChange={(e) =>
+                    setVacationData((prev) => ({
+                      ...prev,
+                      remainingJob: e.target.value,
+                    }))
+                  }
+                >
+                  {Object.keys(jobColors).map((job) => (
+                    <MenuItem key={job} value={job}>
+                      {job}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleVacationSubmit()}
+              sx={{ marginTop: 2 }}
+            >
+              Confirm Vacation
+            </Button>
+          </Box>
+        </Modal>
+
+        <Modal
+          open={mandateOvertimeModalOpen}
+          onClose={() => setMandateOvertimeModalOpen(false)}
+          aria-labelledby="mandate-overtime-modal"
+          aria-describedby="mandate-overtime-modal-description"
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 400,
+              bgcolor: "background.paper",
+              boxShadow: 24,
+              p: 4,
+            }}
+          >
+            <Typography
+              id="mandate-overtime-modal"
+              variant="h6"
+              component="h2"
+              gutterBottom
+            >
+              Select Job for {mandateOvertimeType}
+            </Typography>
+
+            {/* Shift Length Selection */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Shift Length</InputLabel>
+              <Select
+                value={overtimeShiftLength}
+                onChange={(e) => setOvertimeShiftLength(e.target.value)}
+              >
+                <MenuItem value="4">4 hours</MenuItem>
+                <MenuItem value="8">8 hours</MenuItem>
+                <MenuItem value="12">Full 12 hours</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Conditional Part of Shift Selection */}
+            {overtimeShiftLength !== "12" && (
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Part of Shift</InputLabel>
+                <Select
+                  value={overtimeShiftPart}
+                  onChange={(e) => setOvertimeShiftPart(e.target.value)}
+                >
+                  <MenuItem value="beginning">Beginning</MenuItem>
+                  <MenuItem value="end">End</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Job Selection */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Job</InputLabel>
+              <Select
+                value={mandateOvertimeJob}
+                onChange={(e) => setMandateOvertimeJob(e.target.value)}
+              >
+                {[
+                  "FCC Console",
+                  "VRU Console",
+                  "#1 Out",
+                  "#2 Out",
+                  "#3 Out",
+                  "Tank Farm",
+                ].map((job) => (
+                  <MenuItem key={job} value={job}>
+                    {job}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Confirm Button */}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleMandateOvertimeSubmit()}
+              sx={{ marginTop: 2 }}
+            >
+              Confirm {mandateOvertimeType}
+            </Button>
+          </Box>
+        </Modal>
+
+        <Modal
+          open={trainingModalOpen}
+          onClose={() => setTrainingModalOpen(false)}
+          aria-labelledby="training-modal"
+          aria-describedby="training-modal-description"
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 400,
+              bgcolor: "background.paper",
+              boxShadow: 24,
+              p: 4,
+            }}
+          >
+            <Typography
+              id="training-modal"
+              variant="h6"
+              component="h2"
+              gutterBottom
+            >
+              Select Job for Training
+            </Typography>
+
+            {/* Job Selection */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Job</InputLabel>
+              <Select
+                value={trainingJob}
+                onChange={(e) => setTrainingJob(e.target.value)}
+              >
+                {[
+                  "FCC Console",
+                  "VRU Console",
+                  "#1 Out",
+                  "#2 Out",
+                  "#3 Out",
+                  "Tank Farm",
+                ].map((job) => (
+                  <MenuItem key={job} value={job}>
+                    {job}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Confirm Button */}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleTrainingSubmit}
+              sx={{ marginTop: 2 }}
+            >
+              Confirm Training Job
+            </Button>
+          </Box>
+        </Modal>
+
         <Legend />
       </Container>
+      <div
+        id="custom-tooltip"
+        style={{
+          position: "absolute",
+          padding: "5px",
+          backgroundColor: "#333",
+          color: "#fff",
+          borderRadius: "3px",
+          display: "none",
+          zIndex: 1000,
+        }}
+      ></div>
     </div>
   );
 };

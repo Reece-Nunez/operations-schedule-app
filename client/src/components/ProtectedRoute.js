@@ -1,22 +1,25 @@
-// src/components/ProtectedRoute.js
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 
 const ProtectedRoute = ({ roles }) => {
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, loading } = useUser();
+
+  if (loading) {
+    // Optionally, show a loading state if user data is being fetched
+    return <div>Loading...</div>;
+  }
 
   if (!isAuthenticated()) {
-    // If not authenticated, redirect to the login page
+    // Not authenticated, redirect to login
     return <Navigate to="/login" />;
   }
 
-  if (!roles.includes(user.role)) {
-    // If the user doesn't have the correct role, redirect to a forbidden page or home
-    return <Navigate to="/" />;
+  // Check if the user's role is allowed
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to="/login" />;
   }
 
-  // If authenticated and authorized, render the nested routes
   return <Outlet />;
 };
 

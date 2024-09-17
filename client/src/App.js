@@ -11,7 +11,12 @@ import EditSchedule from './components/EditSchedule';
 import { useUser } from './contexts/UserContext';
 
 const App = () => {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, loading } = useUser();
+
+  if (loading) {
+    // Show a loading indicator while fetching user data
+    return <div>Loading...</div>;
+  }
 
   return (
     <Router>
@@ -28,7 +33,6 @@ const App = () => {
           <Route path="/home" element={<Home />} />
         </Route>
         <Route path="/operators/:id" element={<OperatorDetail />} />
-        {/* Add other protected routes here */}
       </Routes>
     </Router>
   );

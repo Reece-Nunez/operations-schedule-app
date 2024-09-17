@@ -32,7 +32,7 @@ router.post("/login", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "8h",
     });
 
     // Return token and user data
@@ -105,11 +105,9 @@ router.post("/register", async (req, res) => {
     res.status(201).send({ user, token });
   } catch (error) {
     console.error("Error during registration:", error);
-    res
-      .status(400)
-      .send({
-        error: error.message || "Registration failed. Please try again.",
-      });
+    res.status(400).send({
+      error: error.message || "Registration failed. Please try again.",
+    });
   }
 });
 
@@ -180,13 +178,13 @@ router.get("/aps", authenticate, async (req, res) => {
   try {
     // Fetch all users with the role of 'APS'
     const apsUsers = await User.findAll({
-      where: { role : 'APS' },
+      where: { role: "APS" },
     });
     // Return the APS users
     res.status(200).json(apsUsers);
   } catch (error) {
     console.error("Error fetching APS users:", error);
-    res.status(500).json({ error: 'Failed to fetch APS users' });
+    res.status(500).json({ error: "Failed to fetch APS users" });
   }
 });
 
@@ -220,12 +218,10 @@ router.post(
         where: { employeeId },
       });
       if (existingOperator) {
-        return res
-          .status(400)
-          .send({
-            error:
-              "Employee ID must be unique. An operator with this Employee ID already exists.",
-          });
+        return res.status(400).send({
+          error:
+            "Employee ID must be unique. An operator with this Employee ID already exists.",
+        });
       }
 
       const operator = await Operator.create({
@@ -269,12 +265,10 @@ router.put(
           where: { employeeId },
         });
         if (existingOperator) {
-          return res
-            .status(400)
-            .send({
-              error:
-                "Employee ID must be unique. An operator with this Employee ID already exists.",
-            });
+          return res.status(400).send({
+            error:
+              "Employee ID must be unique. An operator with this Employee ID already exists.",
+          });
         }
         operator.employeeId = employeeId;
       }
@@ -315,5 +309,24 @@ router.delete(
     }
   }
 );
+
+// Route to get the current authenticated user
+router.get("/me", authenticate, async (req, res) => {
+  try {
+    // Assuming 'req.user' contains the user data from the 'authenticate' middleware
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ["password"] }, // Exclude the password field
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching authenticated user:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 module.exports = router;
