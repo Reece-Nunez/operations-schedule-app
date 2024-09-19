@@ -6,6 +6,7 @@ require('dotenv').config();
 // Import the auth routes
 const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
+const fatiguePolicyRoutes = require('./routes/fatiguePolicyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +18,7 @@ app.use(express.json());
 // Use the auth routes
 app.use('/api', authRoutes);
 app.use('/api/', eventRoutes);
+app.use('/api', fatiguePolicyRoutes);
 
 // Test route
 app.get('/', (req, res) => {

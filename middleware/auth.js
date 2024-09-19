@@ -33,9 +33,13 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-
 const authorize = (roles) => {
   return (req, res, next) => {
+    if (!req.user) {
+      console.error('Authorization error: req.user is undefined');
+      return res.status(401).send({ error: 'Not authenticated.' });
+    }
+    console.log('User role:', req.user.role); // Debugging: Log user role
     if (!roles.includes(req.user.role)) {
       return res.status(403).send({ error: 'Access denied.' });
     }
@@ -43,4 +47,6 @@ const authorize = (roles) => {
   };
 };
 
-module.exports = { authenticate, authorize };
+const checkAdmin = authorize(["Admin", "OLMC", "APS"]);
+
+module.exports = { authenticate, authorize, checkAdmin };

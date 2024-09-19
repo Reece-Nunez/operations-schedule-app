@@ -1,40 +1,45 @@
-import React, { useState, useEffect, useRef } from "react";
+import EditIcon from "@mui/icons-material/Edit";
+import EventIcon from "@mui/icons-material/Event";
+import HomeIcon from "@mui/icons-material/Home";
+import MenuIcon from "@mui/icons-material/Menu";
+import PersonIcon from "@mui/icons-material/Person";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import {
-  Container,
-  Typography,
-  Button,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Grid,
-  Modal,
-  TextField,
   Box,
+  Button,
+  Container,
   Drawer,
+  FormControl,
+  Grid,
+  IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  IconButton,
+  MenuItem,
+  Modal,
+  Select,
+  TextField,
+  Typography,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import MenuIcon from "@mui/icons-material/Menu";
-import PersonIcon from "@mui/icons-material/Person";
-import EventIcon from "@mui/icons-material/Event";
-import HomeIcon from "@mui/icons-material/Home";
-import EditIcon from "@mui/icons-material/Edit";
-import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
-import Logout from "./Logout";
-import moment from "moment-timezone";
-import { useUser } from "../contexts/UserContext";
-import { DateRangePicker } from "react-date-range";
 import axios from "axios";
-import { DataSet, Timeline } from "vis-timeline/standalone";
-import "vis-timeline/styles/vis-timeline-graph2d.min.css";
+import moment from "moment-timezone";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
+import { useNavigate } from "react-router-dom";
+import { DataSet, Timeline } from "vis-timeline/standalone";
+import "vis-timeline/styles/vis-timeline-graph2d.min.css";
+import { useUser } from "../contexts/UserContext";
+import dupontSchedule from "../data/dupont.schedule.json";
+import {
+  fetchFatiguePolicy,
+  checkFatiguePolicy as validateFatiguePolicy,
+} from "../utils/fatiguePolicyUtils";
+import Logout from "./Logout";
 
 const jobColors = {
   "FCC Console": "blue",
@@ -130,6 +135,8 @@ const EditSchedule = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [vacationModalOpen, setVacationModalOpen] = useState(false);
+  const [setTeamSchedules] = useState([]);
+  const [generatedSchedules, setGeneratedSchedules] = useState([]);
   const [vacationData, setVacationData] = useState({
     hoursOff: "", // How many hours off: 4, 8, or 12
     partOfShift: "", // First or last 4/8 hours
@@ -165,42 +172,281 @@ const EditSchedule = () => {
     }
   };
 
+  // Fetch operators and events only once on component mount
   useEffect(() => {
+    console.log("Fetching operators and events...");
+
     const fetchOperators = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) throw new Error("No token found");
 
+        console.log("Fetching operators from API...");
         const response = await axios.get("/api/operators", {
           headers: { Authorization: `Bearer ${token}` },
         });
+
+        // Log the response from the API
+        console.log("Operators fetched from API:", response.data);
+
+        // Update the operators state
         setOperators(response.data);
       } catch (error) {
         console.error("Error fetching operators", error);
       }
     };
+
     fetchOperators();
     fetchEvents();
-  }, []);
+  }, []); // Run this effect only once on component mount
 
+  // Function to determine the shift for a given date based on starting point of pattern
+  const getShiftForDate = (startDate, targetDate, pattern) => {
+    // Calculate the number of days between the start date and the target date
+    const daysDiff = targetDate.diff(startDate, "days");
+
+    // Determine the index in the pattern using modulo
+    const patternIndex = daysDiff % pattern.length;
+
+    // Return the shift from the pattern
+    return pattern[patternIndex].shift;
+  };
+
+  // Wrap generateTeamSchedule in useCallback
+  const generateTeamSchedule = useCallback(async () => {
+    console.log("Running generateTeamSchedule function...");
+
+    // Determine the current date
+    const today = moment().startOf("day");
+
+    // Calculate the start of the current week
+    const weekStartDate = today.clone().startOf("isoWeek"); // Monday of this week
+    const weekEndDate = weekStartDate.clone().add(6, "days"); // End of this week (Sunday)
+
+    // Define start dates for each team based on the team's pattern
+    const teamStartDates = {
+      A: moment("2024-08-06"),
+      B: moment("2024-08-05"),
+      C: moment("2024-08-09"),
+      D: moment("2024-08-09"),
+    };
+
+    // Define the shift pattern
+    const shiftPattern = [
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Night" },
+      { shift: "Night" },
+      { shift: "Night" },
+      { shift: "Night" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Off" },
+      { shift: "Night" },
+      { shift: "Night" },
+      { shift: "Night" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Off" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Day" },
+      { shift: "Day" },
+    ];
+
+    const schedules = operators
+      .map((operator) => {
+        if (
+          operator.team === "Probationary" ||
+          operator.team === "Replacement"
+        ) {
+          console.log(
+            `Skipping operator ${operator.name} with team ${operator.team}`
+          );
+          return null;
+        }
+
+        if (!operator.team || !teamStartDates[operator.team]) {
+          console.warn(
+            `Operator ${operator.name} does not have a valid team assigned.`
+          );
+          return null;
+        }
+
+        const patternStartDate = teamStartDates[operator.team];
+
+        const nextWeekSchedule = [];
+        for (let i = 0; i < 7; i++) {
+          const shiftDate = weekStartDate.clone().add(i, "days");
+          const shift = getShiftForDate(
+            patternStartDate,
+            shiftDate,
+            shiftPattern
+          );
+
+          console.log(
+            `Operator: ${operator.name}, Date: ${shiftDate.format(
+              "YYYY-MM-DD"
+            )}, Shift: ${shift}`
+          );
+
+          // Skip "Off" shifts
+          if (shift !== "Off") {
+            nextWeekSchedule.push({
+              date: shiftDate.toDate(),
+              shift: shift,
+            });
+          }
+        }
+
+        return {
+          operatorId: operator.id,
+          name: operator.name,
+          team: operator.team,
+          schedule: nextWeekSchedule,
+        };
+      })
+      .filter((schedule) => schedule !== null);
+
+    console.log("Schedules generated:", schedules);
+
+    // Store the generated schedules in state
+    setGeneratedSchedules(schedules);
+
+    // Save generated events to the server, checking fatigue policy before posting
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const savedEvents = await Promise.all(
+        schedules.flatMap((schedule) =>
+          schedule.schedule.map(async (shift) => {
+            const startTime = shift.shift === "Day" ? 4 : 16;
+            const shiftDate = moment(shift.date).set({
+              hour: startTime,
+              minute: 45,
+            });
+            const endShiftDate = shiftDate.clone().add(12, "hours");
+
+            // Check fatigue policy compliance
+            const isCompliant = await checkFatiguePolicyCompliance(
+              schedule.operatorId,
+              shiftDate.toDate(),
+              endShiftDate.toDate(),
+              shift.shift === "Day" ? "12-Hour" : "12-Hour",
+              [],
+              {
+                operatorId: schedule.operatorId,
+                start: shiftDate.toDate(),
+                end: endShiftDate.toDate(),
+              }
+            );
+
+            if (!isCompliant) {
+              console.log(
+                `Fatigue policy violated for operator ${
+                  schedule.operatorId
+                } on ${shiftDate.format("YYYY-MM-DD")}`
+              );
+              return null;
+            }
+
+            const event = {
+              operatorId: schedule.operatorId,
+              title: `${shift.shift} Shift`,
+              start: shiftDate.toDate(),
+              end: endShiftDate.toDate(),
+              shift: shift.shift,
+              job: "Generated",
+            };
+
+            console.log("Attempting to save event:", event);
+
+            const response = await axios.post("/api/events", event, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            console.log("Event saved:", response.data);
+            return response.data;
+          })
+        )
+      );
+
+      // Filter out any null events that were skipped due to fatigue policy violations
+      const validEvents = savedEvents.filter((event) => event !== null);
+      // Add saved events to unpublishedEvents
+      setUnpublishedEvents((prevEvents) => [...prevEvents, ...validEvents]);
+    } catch (error) {
+      console.error("Error saving generated events:", error);
+    }
+  }, [operators]);
+
+  // Use generateTeamSchedule in the useEffect hook
+  useEffect(() => {
+    console.log("Generating team schedules...");
+    generateTeamSchedule();
+  }, [operators, generateTeamSchedule]);
+
+  // Timeline initialization
   useEffect(() => {
     const container = timelineRef.current;
 
-    // Create items for each event, assigning them to specific groups (operators)
+    console.log("Initializing timeline with events and operators...");
+
+    // Convert generated schedules to the same format as events
+    const scheduleEvents = generatedSchedules.flatMap((schedule) =>
+      schedule.schedule.map((shift) => {
+        // Set the start and end times based on the shift type
+        const startTime = shift.shift === "Day" ? 4 : 16;
+        const shiftDate = moment(shift.date).set({
+          hour: startTime,
+          minute: 45,
+        });
+        const endShiftDate = shiftDate.clone().add(12, "hours");
+
+        return {
+          id: `${schedule.operatorId}-${shift.date}`, // Create a unique ID
+          group: schedule.operatorId,
+          content: `${shift.shift} Shift`,
+          start: shiftDate.toDate(),
+          end: endShiftDate.toDate(),
+          style: `background-color: ${
+            jobColors[shift.shift] || "gray"
+          }; color: white; 
+            border-radius: 5px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #333;`,
+        };
+      })
+    );
+
+    // Merge generated schedules with unpublished events
+    const eventsToDisplay = [...unpublishedEvents, ...scheduleEvents];
+
+    console.log("Events to Display:", eventsToDisplay);
+
     const items = new DataSet(
-      unpublishedEvents.map((event) => ({
+      eventsToDisplay.map((event) => ({
         id: event.id,
-        group: event.operatorId,
-        content: `${event.title}`,
+        group: event.operatorId || event.group,
+        content: `${event.title || event.content}`,
         start: event.start,
         end: event.end,
-        style: `background-color: ${
-          jobColors[event.job] || "gray"
-        }; color: white; border-radius: 5px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #333;`, // Adding styling
+        style: event.style,
       }))
     );
 
-    // Create groups for each operator
     const groups = new DataSet(
       operators.map((operator) => ({
         id: operator.id,
@@ -222,81 +468,51 @@ const EditSchedule = () => {
       zoomable: false,
       horizontalScroll: false,
       multiselect: true,
+      onInitialDrawComplete: function () {
+        const itemsArray = document.querySelectorAll(".vis-item");
+        itemsArray.forEach((item) => {
+          item.addEventListener("mouseenter", () => {
+            const tooltip = document.getElementById("custom-tooltip");
+            tooltip.innerHTML = item.getAttribute("data-content");
+            tooltip.style.display = "block";
+          });
+          item.addEventListener("mouseleave", () => {
+            const tooltip = document.getElementById("custom-tooltip");
+            tooltip.style.display = "none";
+          });
+        });
+      },
       template: function (item) {
-        // Determine if the job is 'Overtime'
         const isOvertime = item.content.includes("Overtime");
-        // Apply custom styling conditionally
         return `<div style="color: ${
           isOvertime ? "black" : "white"
-        }; padding: 5px;">
-                  ${item.content}
-                </div>`;
+        }; padding: 5px;" data-content="${item.content}">
+                ${item.content}
+              </div>`;
       },
     };
 
     timelineInstance.current = new Timeline(container, items, groups, options);
-
-    // Set the default zoom level to be 4 steps away from zoomMax
-    const zoomLevel = options.zoomMax / 4;
-    const windowStart = new Date(Date.now() - zoomLevel);
-    const windowEnd = new Date(Date.now() + zoomLevel);
-    timelineInstance.current.setWindow(windowStart, windowEnd);
-
-    if (timelineInstance.current) {
-      // Show the tooltip on hover
-      timelineInstance.current.on("itemover", function (properties) {
-        const tooltip = document.getElementById("custom-tooltip");
-        const event = unpublishedEvents.find(
-          (evt) => evt.id === properties.item
-        );
-        if (event) {
-          tooltip.innerHTML = `Title: ${event.title}<br>Job: ${event.job}`;
-          tooltip.style.display = "block";
-        }
-      });
-
-      // Hide the tooltip when not hovering
-      timelineInstance.current.on("itemout", function () {
-        const tooltip = document.getElementById("custom-tooltip");
-        tooltip.style.display = "none";
-      });
-
-      // Move the tooltip with the mouse
-      timelineInstance.current.on("mouseMove", function (properties) {
-        const tooltip = document.getElementById("custom-tooltip");
-        tooltip.style.left = properties.event.pageX + 10 + "px";
-        tooltip.style.top = properties.event.pageY + 10 + "px";
-      });
-    }
-
-    // Add event click listener
     timelineInstance.current.on("select", (properties) => {
-      const eventIds = properties.items; // This returns an array of selected event IDs
-
-      if (eventIds.length > 0) {
-        const selected = unpublishedEvents.filter((evt) =>
-          eventIds.includes(evt.id)
-        );
-        setSelectedEvents(selected); // Track multiple selected events
-
-        // Check if multiple events are selected, don't open the modal until user is done selecting
-        if (eventIds.length > 1) {
-          setModalOpen(true); // Open the modal only when multiple events are selected
-        } else {
-          // For single selection, open modal directly
-          setSelectedEvent(selected[0]);
-          setModalOpen(true);
-        }
+      if (properties.items.length > 0) {
+        const selectedId = properties.items[0];
+        const selectedEvent = items.get(selectedId);
+        setSelectedEvent(selectedEvent);
+        setModalOpen(true);
       }
     });
+
+    console.log("Timeline initialized.");
 
     return () => {
       if (timelineInstance.current) {
         timelineInstance.current.destroy();
+        console.log("Timeline destroyed.");
       }
     };
-  }, [unpublishedEvents, operators]);
+  }, [unpublishedEvents, operators, generatedSchedules]);
 
+  // Perform bulk delete
   const handleBulkDelete = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -367,6 +583,31 @@ const EditSchedule = () => {
         return;
       }
 
+      // Extract new start and end dates for the fatigue check
+      const { start, end, operatorId } = selectedEvent;
+      const newShiftStart = new Date(start);
+      const newShiftEnd = new Date(end);
+      const shiftType = selectedEvent.shift === "Day" ? "12-Hour" : "12-Hour"; // Adjust this if shift type varies
+
+      // Perform the fatigue policy check before saving the edited event
+      const isCompliant = await checkFatiguePolicyCompliance(
+        operatorId,
+        newShiftStart,
+        newShiftEnd,
+        shiftType,
+        [], // Pass empty array or existing shifts if needed
+        selectedEvent
+      );
+
+      if (!isCompliant) {
+        console.log(
+          `Fatigue policy violated for the edited event on ${moment(
+            newShiftStart
+          ).format("YYYY-MM-DD")}`
+        );
+        return;
+      }
+
       const response = await fetch(`/api/events/${selectedEvent.id}`, {
         method: "PUT",
         headers: {
@@ -395,6 +636,18 @@ const EditSchedule = () => {
     } catch (error) {
       alert("An error occurred while saving the event.");
       console.error("Error saving event:", error);
+    }
+
+    const handleJobSelection = (eventId, job) => {
+      setUnpublishedEvents((prevEvents) =>
+        prevEvents.map((event) =>
+          event.id === eventId ? { ...event, job } : event
+        )
+      );
+    };
+
+    if (selectedEvent.job) {
+      handleJobSelection(selectedEvent.id, selectedEvent.job);
     }
   };
 
@@ -430,165 +683,54 @@ const EditSchedule = () => {
     }
   };
 
-  const checkFatiguePolicy = async (
+  const checkFatiguePolicyCompliance = async (
     operatorId,
     newShiftStart,
     newShiftEnd,
     shiftType,
-    allShifts // Include this parameter to pass shifts created in the current submission
+    allShifts,
+    newEvent
   ) => {
-    newShiftStart = new Date(newShiftStart);
-    newShiftEnd = new Date(newShiftEnd);
-
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("No token found");
-
-    // Fetch operator's existing events within the current work-set
-    const startDate = moment(newShiftStart)
-      .startOf("week")
-      .format("YYYY-MM-DD");
-    const endDate = moment(newShiftEnd).endOf("week").format("YYYY-MM-DD");
-
-    // Fetch published events
-    const publishedResponse = await axios.get(
-      `/api/events/operator/${operatorId}?from=${startDate}&to=${endDate}&published=true`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const publishedShifts = publishedResponse.data;
-
-    // Fetch unpublished events
-    const unpublishedResponse = await axios.get(
-      `/api/events/operator/${operatorId}?from=${startDate}&to=${endDate}&published=false`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const unpublishedShifts = unpublishedResponse.data;
-
-    // Merge published, unpublished events, and shifts created in the current submission
-    const combinedShifts = [
-      ...publishedShifts,
-      ...unpublishedShifts,
-      ...allShifts,
-    ];
-
-    combinedShifts.push({
-      id: null,
-      operatorId: newEvent.operatorId,
-      title: `${newEvent.shift} Shift`,
-      start: newShiftStart.toISOString(),
-      end: newShiftEnd.toISOString(),
-      shift: newEvent.shift,
-      job: newEvent.job,
-    });
-
-    // Ensure no duplicates and sort by start time
-    const allShiftsUnique = [
-      ...new Map(combinedShifts.map((shift) => [shift.id, shift])).values(),
-    ];
-    allShiftsUnique.sort((a, b) => new Date(a.start) - new Date(b.start));
-
-    let consecutiveShifts = 0;
-    let consecutiveNightShifts = 0;
-    let lastShiftEnd = null;
-
-    console.log("Existing and current shifts: ", allShiftsUnique);
-
-    // Iterate through each shift
-    for (let index = 0; index < allShiftsUnique.length; index++) {
-      const shift = allShiftsUnique[index];
-      const shiftStart = new Date(shift.start);
-      const shiftEnd = new Date(shift.end);
-
-      console.log(
-        `Processing shift ${index}: Start - ${shiftStart}, End - ${shiftEnd}`
+    const fatiguePolicyConfig = await fetchFatiguePolicy();
+    if (fatiguePolicyConfig) {
+      const isCompliant = await validateFatiguePolicy(
+        operatorId,
+        newShiftStart,
+        newShiftEnd,
+        shiftType,
+        allShifts,
+        fatiguePolicyConfig,
+        newEvent
       );
-
-      if (lastShiftEnd) {
-        const timeGap =
-          (shiftStart.getTime() - lastShiftEnd.getTime()) / (60 * 60 * 1000); // Convert gap to hours
-
-        console.log(
-          `Time gap between last shift and current shift: ${timeGap} hours`
-        );
-
-        // If time gap is more than 12 hours, the set is considered over
-        if (timeGap > 12) {
-          console.log(
-            `Break detected between shifts at index ${index}. Checking if rest period meets fatigue policy requirements.`
-          );
-
-          // Fatigue policy check when the set is over
-          if (consecutiveShifts >= 7 && timeGap < 48) {
-            alert(
-              "Fatigue policy violation: Operator has worked 7 or more consecutive shifts and needs at least 48 hours of rest."
-            );
-            return false;
-          }
-
-          if (consecutiveNightShifts >= 4 && timeGap < 48) {
-            alert(
-              "Fatigue policy violation: Operator has worked 4 or more consecutive night shifts and needs at least 48 hours of rest."
-            );
-            return false;
-          }
-
-          if (consecutiveShifts === 3 && timeGap < 36) {
-            alert(
-              "Fatigue policy violation: Operator has worked 3 shifts and needs at least 36 hours of rest."
-            );
-            return false;
-          }
-
-          // Start a new set
-          consecutiveShifts = 1;
-          consecutiveNightShifts = shift.shift === "Night" ? 1 : 0;
-        } else {
-          consecutiveShifts += 1;
-          if (shift.shift === "Night") {
-            consecutiveNightShifts += 1;
-          }
-        }
-      } else {
-        consecutiveShifts = 1;
-        consecutiveNightShifts = shift.shift === "Night" ? 1 : 0;
-      }
-
-      lastShiftEnd = shiftEnd;
-
-      console.log(`Consecutive shifts: ${consecutiveShifts}`);
-      console.log(`Consecutive night shifts: ${consecutiveNightShifts}`);
-
-      // Immediate check for maximum consecutive shifts (violation regardless of time gap)
-      if (consecutiveShifts > 7) {
-        alert(
-          "Fatigue policy violation: Operator has exceeded the maximum number of consecutive shifts."
-        );
-        return false;
-      }
+      return isCompliant; // Handle this result to proceed or alert the user
+    } else {
+      // Handle case where the policy config couldn't be fetched
+      console.error("Failed to fetch fatigue policy configuration");
+      return false;
     }
-
-    return true;
   };
 
   // Function to check if the job is already taken by another operator
-  const isJobTaken = async (job, startDate, endDate) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("No token found");
+  const isJobTaken = async (job, start, end) => {
+    const response = await axios.get("/api/events", {
+      params: {
+        job,
+        start,
+        end,
+      },
+    });
 
-      // Fetch all events for the specified job and date range
-      const response = await axios.get(
-        `/api/events?job=${job}&from=${startDate}&to=${endDate}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+    console.log("Checking if job is taken:", job, start, end);
+    console.log("Response data for job taken check:", response.data);
+
+    // Ensure it checks for the exact start and end time
+    return response.data.some((event) => {
+      return (
+        event.job === job &&
+        new Date(event.start) <= new Date(end) &&
+        new Date(event.end) >= new Date(start)
       );
-
-      // If there are any events returned, the job is taken
-      return response.data.length > 0;
-    } catch (error) {
-      console.error("Error checking job availability:", error);
-      return false; // If there's an error, assume the job is not taken to avoid false positives
-    }
+    });
   };
 
   const handleSubmit = async () => {
@@ -639,12 +781,26 @@ const EditSchedule = () => {
 
         const endShift = startShift.clone().add(12, "hours");
 
+        // Debugging log
+        console.log(
+          `Checking job conflict for job ${
+            newEvent.job
+          } on date ${currentDate.format("YYYY-MM-DD")}`
+        );
+
         // Check for job conflict
         if (jobsRequiringTraining.includes(newEvent.job)) {
           const jobTaken = await isJobTaken(
             newEvent.job,
             startShift.toISOString(),
             endShift.toISOString()
+          );
+
+          console.log(
+            `Job taken status for ${newEvent.job} on ${currentDate.format(
+              "YYYY-MM-DD"
+            )}:`,
+            jobTaken
           );
 
           if (jobTaken) {
@@ -675,16 +831,17 @@ const EditSchedule = () => {
             ? "12-Hour"
             : "Unknown";
 
-        // Pass the shifts created during the current submission along with fatigue check
-        const fatigueCheck = await checkFatiguePolicy(
+        // Perform the fatigue policy check before creating the event
+        const isCompliant = await checkFatiguePolicyCompliance(
           newEvent.operatorId,
-          startShift,
-          endShift,
+          startShift.toDate(),
+          endShift.toDate(),
           shiftType,
-          allShifts // Pass the shifts created so far
+          allShifts,
+          event
         );
 
-        if (!fatigueCheck) {
+        if (!isCompliant) {
           console.log(
             `Fatigue policy violated for shift on ${currentDate.format(
               "YYYY-MM-DD"
@@ -914,15 +1071,24 @@ const EditSchedule = () => {
       const shiftType = `${overtimeShiftLength}-Hour`; // Adjusted shiftType
       const allShifts = []; // Initialize an empty array to pass the created shifts
 
-      const fatigueCheck = await checkFatiguePolicy(
+      // Use the new checkFatiguePolicyCompliance function
+      const isCompliant = await checkFatiguePolicyCompliance(
         operatorId,
-        startShift,
-        endShift,
+        startShift.toDate(),
+        endShift.toDate(),
         shiftType,
-        allShifts
+        allShifts,
+        {
+          operatorId,
+          title,
+          start: startShift.toDate(),
+          end: endShift.toDate(),
+          shift,
+          job: jobType,
+        }
       );
 
-      if (!fatigueCheck) {
+      if (!isCompliant) {
         console.log(
           `Fatigue policy violated for ${jobType} on ${startShift.format(
             "YYYY-MM-DD"
@@ -957,7 +1123,6 @@ const EditSchedule = () => {
   };
 
   const handleTrainingSubmit = async () => {
-    // Make sure that `newEvent` contains the selected operatorId and shift type
     const { operatorId, shift, startDate, endDate } = newEvent;
 
     if (!operatorId || !shift) {
@@ -993,17 +1158,18 @@ const EditSchedule = () => {
           job: "Training", // Setting the job as 'Training'
         };
 
-        // Fatigue Policy Check (optional)
+        // Fatigue Policy Check using the new function
         const shiftType = `${12}-Hour`;
-        const fatigueCheck = await checkFatiguePolicy(
+        const isCompliant = await checkFatiguePolicyCompliance(
           operatorId,
-          startShift,
-          endShift,
+          startShift.toDate(),
+          endShift.toDate(),
           shiftType,
-          allShifts
+          allShifts,
+          event
         );
 
-        if (!fatigueCheck) {
+        if (!isCompliant) {
           console.log(
             `Fatigue policy violated for training on ${currentDate.format(
               "YYYY-MM-DD"
